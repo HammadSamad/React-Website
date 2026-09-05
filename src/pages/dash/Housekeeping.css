@@ -1,0 +1,38 @@
+/* priority pill */
+.prio {
+  display: inline-flex; align-items: center;
+  padding: 0.22rem 0.6rem; border-radius: var(--r-pill);
+  font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500;
+}
+.prio--high { color: #e0997f; background: rgba(180, 97, 79, 0.18); }
+.prio--normal { color: var(--sage); background: rgba(154, 166, 156, 0.14); }
+.prio--low { color: #9db4c4; background: rgba(124, 147, 166, 0.16); }
+
+/* Kanban board */
+.hk-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; align-items: start; }
+.hk-col { background: var(--ink-2); border: 1px solid var(--forest-line); border-radius: var(--r-lg); padding: 1rem; }
+.hk-col__head { display: flex; align-items: center; gap: 0.6rem; padding: 0.25rem 0.4rem 0.9rem; }
+.hk-col__dot { width: 8px; height: 8px; border-radius: 50%; }
+.hk-col__dot--pending { background: var(--st-occupied); }
+.hk-col__dot--in-progress { background: var(--st-cleaning); }
+.hk-col__dot--done { background: var(--st-available); }
+.hk-col__title { font-family: var(--font-sans); font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bone); flex: 1; }
+.hk-col__count { font-size: 0.8rem; color: var(--sage-2); font-variant-numeric: tabular-nums; }
+.hk-col__body { display: flex; flex-direction: column; gap: 0.75rem; min-height: 40px; }
+.hk-col__empty { text-align: center; padding: 1.5rem 0; font-size: 0.8rem; color: var(--sage-2); }
+
+.hk-card { background: var(--forest); border: 1px solid var(--forest-line); border-radius: var(--r-md); padding: 1rem 1.1rem; transition: border-color 0.3s var(--ease); }
+.hk-card:hover { border-color: rgba(195, 161, 91, 0.35); }
+.hk-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+.hk-card__room { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--sage); }
+.hk-card__task { color: var(--bone); font-size: 0.95rem; margin-bottom: 0.3rem; }
+.hk-card__note { font-size: 0.8rem; color: var(--sage); line-height: 1.5; margin-bottom: 0.5rem; }
+.hk-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.85rem; padding-top: 0.85rem; border-top: 1px solid var(--forest-line-2); flex-wrap: wrap; }
+.hk-card__who { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; color: var(--sage); }
+.hk-card__avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.62rem; font-weight: 600; background: rgba(195, 161, 91, 0.16); color: var(--brass-bright); }
+.hk-card__actions { display: flex; gap: 0.4rem; }
+.hk-assign { max-width: 150px; padding: 0.42rem 1.6rem 0.42rem 0.65rem; font-size: 0.76rem; }
+
+@media (max-width: 1000px) {
+  .hk-board { grid-template-columns: 1fr; }
+}

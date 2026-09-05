@@ -1,0 +1,12 @@
+/* Guest Services board — leans on the shared .dash-table / .panel styles. */
+
+.svc-type { display: flex; align-items: center; gap: 0.75rem; }
+.svc-type__icon {
+  width: 34px; height: 34px; border-radius: var(--r-sm); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(195, 161, 91, 0.14); color: var(--brass);
+}
+.svc-type__name { font-weight: 500; color: var(--bone); }
+.svc-type__detail { max-width: 320px; margin-top: 0.15rem; }
+.svc-when { white-space: nowrap; }
+.svc-assign { min-width: 152px; padding-block: 0.5rem; font-size: 0.82rem; }

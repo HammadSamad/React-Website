@@ -1,0 +1,45 @@
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+.settings-span { grid-column: 1 / -1; }
+
+/* switches */
+.switch-list { display: flex; flex-direction: column; }
+.switch-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%;
+  padding: 1rem 0; border-bottom: 1px solid var(--forest-line-2); background: none; text-align: left;
+}
+.switch-row:last-child { border-bottom: none; }
+.switch-row__text { display: flex; flex-direction: column; gap: 0.2rem; }
+.switch-row__label { color: var(--bone); font-size: 0.92rem; }
+.switch-row__hint { color: var(--sage); font-size: 0.78rem; }
+.switch {
+  flex-shrink: 0; width: 46px; height: 26px; border-radius: var(--r-pill);
+  background: var(--forest-2); border: 1px solid var(--forest-line); position: relative; transition: background 0.3s var(--ease);
+}
+.switch__knob { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--sage); transition: transform 0.3s var(--ease), background 0.3s var(--ease); }
+.switch-row.is-on .switch { background: var(--brass); border-color: var(--brass); }
+.switch-row.is-on .switch__knob { transform: translateX(20px); background: var(--ink); }
+
+/* rates */
+.rate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 1.5rem; }
+.rate-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.6rem 0; }
+.rate-row__name { display: flex; flex-direction: column; color: var(--bone); font-size: 0.95rem; }
+.rate-row__name span { font-size: 0.72rem; color: var(--sage); letter-spacing: 0.04em; }
+.rate-input { display: inline-flex; align-items: center; gap: 0.5rem; }
+.rate-input__cur { color: var(--sage); font-size: 0.9rem; }
+.rate-input .input { width: 110px; text-align: right; padding: 0.6rem 0.75rem; }
+.rate-input__per { color: var(--sage-2); font-size: 0.78rem; }
+
+/* floating save bar */
+.settings-savebar {
+  position: fixed; left: 50%; bottom: 1.75rem; transform: translateX(-50%); z-index: 25;
+  display: flex; align-items: center; gap: 1.5rem;
+  padding: 0.85rem 0.85rem 0.85rem 1.5rem; border-radius: var(--r-pill);
+  background: var(--forest); border: 1px solid var(--brass); box-shadow: var(--shadow-lg);
+  color: var(--bone); font-size: 0.88rem;
+}
+.settings-savebar__actions { display: flex; gap: 0.5rem; }
+
+@media (max-width: 900px) {
+  .settings-grid { grid-template-columns: 1fr; }
+  .rate-grid { grid-template-columns: 1fr; }
+}

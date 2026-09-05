@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pandoc -t markdown \"MERN-Hotel_Management_System.docx\")",
+      "Bash(cd \"/tmp\")",
+      "Bash(rm -rf hotel_doc)",
+      "Bash(mkdir hotel_doc)",
+      "Bash(unzip -q \"/d/Projects/MERN EProject/MERN-Hotel_Management_System.docx\" -d hotel_doc)",
+      "Bash(cygpath -w \"$\\(pwd\\)/hotel_reqs.txt\")",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(npm run *)"
+    ]
+  }
+}

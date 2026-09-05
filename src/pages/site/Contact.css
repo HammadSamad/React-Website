@@ -1,0 +1,65 @@
+.contact-grid {
+  display: grid; grid-template-columns: 1.15fr 0.85fr;
+  gap: clamp(2.5rem, 6vw, 5rem); align-items: start;
+}
+.contact-h2 {
+  font-family: var(--font-display); font-weight: 300;
+  font-size: clamp(1.8rem, 3.5vw, 2.6rem); margin-bottom: 0.75rem;
+}
+.contact-form { display: flex; flex-direction: column; gap: 1.25rem; }
+.contact-form .btn { align-self: flex-start; margin-top: 0.5rem; }
+
+/* Stylized map panel */
+.contact-map {
+  position: relative; height: 240px; border-radius: var(--r-lg); overflow: hidden;
+  background:
+    radial-gradient(120% 120% at 70% 20%, var(--forest-2), var(--ink) 70%);
+  margin-bottom: 2rem; border: 1px solid var(--forest-line);
+}
+.contact-map__grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--forest-line-2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--forest-line-2) 1px, transparent 1px);
+  background-size: 34px 34px; mask-image: radial-gradient(120% 100% at 60% 40%, #000, transparent 85%);
+}
+.contact-map__pin {
+  position: absolute; top: 42%; left: 62%;
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  color: var(--ink); background: var(--brass);
+  box-shadow: 0 0 0 8px rgba(195, 161, 91, 0.18), var(--shadow-brass);
+  animation: pinPulse 3s var(--ease) infinite;
+}
+@keyframes pinPulse {
+  0%, 100% { box-shadow: 0 0 0 8px rgba(195, 161, 91, 0.18), var(--shadow-brass); }
+  50% { box-shadow: 0 0 0 14px rgba(195, 161, 91, 0.05), var(--shadow-brass); }
+}
+.contact-map__coords {
+  position: absolute; bottom: 1rem; left: 1.25rem;
+  font-size: 0.74rem; letter-spacing: 0.14em; color: var(--sage);
+  background: rgba(14, 23, 18, 0.5); padding: 0.35rem 0.75rem; border-radius: var(--r-pill);
+  backdrop-filter: blur(6px);
+}
+
+.contact-details { display: grid; gap: 0.5rem; }
+.contact-detail {
+  display: flex; gap: 1.1rem; align-items: flex-start;
+  padding: 1.1rem 0; border-bottom: 1px solid var(--bone-3);
+}
+.contact-detail:last-child { border-bottom: none; }
+.contact-detail__icon {
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(195, 161, 91, 0.12); color: var(--brass-deep);
+}
+.contact-detail__label {
+  display: block; font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--brass-deep); margin-bottom: 0.35rem;
+}
+.contact-detail__line { display: block; color: var(--ink-text); font-size: 0.96rem; line-height: 1.55; }
+.contact-detail__line + .contact-detail__line { color: var(--ink-muted); font-size: 0.85rem; }
+
+@media (max-width: 860px) {
+  .contact-grid { grid-template-columns: 1fr; }
+}
