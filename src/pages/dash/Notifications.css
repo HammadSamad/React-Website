@@ -1,0 +1,12 @@
+.notification-page-list { overflow: hidden; }
+.notification-page-item { position: relative; display: flex; align-items: center; gap: 1rem; width: 100%; padding: 1.1rem 1.4rem; text-align: left; border-bottom: 1px solid var(--forest-line-2); transition: background .25s var(--ease); }
+.notification-page-item:last-child { border-bottom: 0; }
+.notification-page-item:hover { background: rgba(245,239,227,.035); }
+.notification-page-item.is-unread { background: rgba(195,161,91,.07); }
+.notification-page-item__icon { width: 42px; height: 42px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: rgba(195,161,91,.14); color: var(--brass); }
+.notification-page-item__body { display: grid; gap: .2rem; flex: 1; min-width: 0; }
+.notification-page-item__body strong { color: var(--bone); font-size: .92rem; font-weight: 500; }
+.notification-page-item__body span, .notification-page-item time { color: var(--sage); font-size: .8rem; }
+.notification-page-item time { padding-right: 1.2rem; white-space: nowrap; }
+.notification-page-item__dot { position: absolute; right: 1.1rem; width: 7px; height: 7px; border-radius: 50%; background: var(--brass); }
+@media (max-width: 600px) { .notification-page-item { align-items: flex-start; padding: 1rem; } .notification-page-item time { display: none; } }

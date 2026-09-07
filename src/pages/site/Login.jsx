@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Icon from '../../components/common/Icon.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { demoAccounts, roleLabels } from '../../data/hotel.js';
+import { api } from '../../lib/api.js';
 import { img } from '../../lib/images.js';
 import './Login.css';
 
@@ -21,19 +21,18 @@ export default function Login() {
   const [forgot, setForgot] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [resetError, setResetError] = useState('');
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    const res = login(email, password);
+    const res = await login(email, password);
     if (res.ok) navigate(res.user.role === 'guest' ? '/account' : from, { replace: true });
-    else setError(res.error || 'Those credentials were not recognised.');
+    else { setError(res.error || 'Those credentials were not recognised.'); if (res.code === 'EMAIL_NOT_VERIFIED') navigate(`/verify-email?email=${encodeURIComponent(email)}`); }
   };
-
-  const quick = (acc) => {
-    setEmail(acc.email);
-    setPassword('demo1234');
-    setError('');
-  };
+  const requestReset = async () => { try { await api('/auth/forgot-password', { method: 'POST', body: { email: resetEmail } }); setSent(true); setResetError(''); } catch (e) { setResetError(e.message); } };
+  const resetPassword = async () => { try { await api('/auth/reset-password', { method: 'POST', body: { email: resetEmail, otp, password: newPassword } }); setForgot(false); setError('Password reset. You can now sign in.'); } catch (e) { setResetError(e.message); } };
 
   return (
     <div className="login">
@@ -101,19 +100,6 @@ export default function Login() {
             Forgot your password?
           </button>
 
-          <div className="login__demo">
-            <p className="login__demo-label"><span className="rule" style={{ flex: 1 }} /> Demo accounts <span className="rule" style={{ flex: 1 }} /></p>
-            <div className="login__demo-grid">
-              {demoAccounts.map((a) => (
-                <button key={a.email} className="login__demo-btn" onClick={() => quick(a)}>
-                  <span className="login__demo-role">{roleLabels[a.role]}</span>
-                  <span className="login__demo-email">{a.email}</span>
-                </button>
-              ))}
-            </div>
-            <p className="login__hint">Pick an account, then sign in — any password works for the demo.</p>
-          </div>
-
           <p className="login__alt">
             New to LuxuryStay? <Link to="/signup">Create an account</Link>
           </p>
@@ -123,19 +109,19 @@ export default function Login() {
       <Modal
         open={forgot}
         onClose={() => setForgot(false)}
-        title={sent ? 'Check your inbox' : 'Reset your password'}
-        subtitle={sent ? undefined : 'We’ll send a secure reset link to your email.'}
+        title={sent ? 'Enter your reset code' : 'Reset your password'}
+        subtitle={sent ? 'Use the six-digit code sent to your email.' : 'We’ll send a secure reset code to your email.'}
         footer={sent
-          ? <button className="btn" onClick={() => setForgot(false)}>Done</button>
+          ? <><button className="btn btn--outline" onClick={() => setForgot(false)}>Cancel</button><button className="btn" disabled={!/^\d{6}$/.test(otp) || newPassword.length < 8} onClick={resetPassword}>Reset password</button></>
           : <>
               <button className="btn btn--outline" onClick={() => setForgot(false)}>Cancel</button>
-              <button className="btn" disabled={!/\S+@\S+\.\S+/.test(resetEmail)} onClick={() => setSent(true)}>Send reset link</button>
+              <button className="btn" disabled={!/\S+@\S+\.\S+/.test(resetEmail)} onClick={requestReset}>Send code</button>
             </>}
       >
         {sent ? (
           <p className="text-muted" style={{ lineHeight: 1.7 }}>
-            If an account exists for <strong style={{ color: 'var(--ink-text)' }}>{resetEmail}</strong>, a link to
-            reset your password is on its way. It expires in 30 minutes.
+            <label className="field"><span className="field-label">Verification code</span><input className="input" inputMode="numeric" maxLength="6" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6-digit code" /></label>
+            <label className="field" style={{ marginTop: '1rem' }}><span className="field-label">New password</span><input className="input" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" /></label>
           </p>
         ) : (
           <label className="field">
@@ -144,6 +130,7 @@ export default function Login() {
               onChange={(e) => setResetEmail(e.target.value)} placeholder="you@email.com" />
           </label>
         )}
+        {resetError && <p className="login__error" style={{ marginTop: '1rem' }}><Icon name="info" size={15} /> {resetError}</p>}
       </Modal>
     </div>
   );

@@ -25,10 +25,10 @@ const nextId = (prefix) => `${prefix}-${++seq}`;
 /* A few notifications already waiting in the console on first load. */
 const now = Date.now();
 const seedNotifications = [
-  { id: 'n-1', kind: 'booking', icon: 'calendar', title: 'New reservation · LS-8851', body: 'Oliver Bennett — Poolside Cabana, 3 nights', ts: now - 1000 * 60 * 9, read: false },
-  { id: 'n-2', kind: 'service', icon: 'car', title: 'Service request · Room 301', body: 'Airport transfer — Changi T3, sedan', ts: now - 1000 * 60 * 52, read: false },
-  { id: 'n-3', kind: 'maintenance', icon: 'wrench', title: 'Maintenance logged · Room 208', body: 'Bathroom faucet dripping', ts: now - 1000 * 60 * 96, read: false },
-  { id: 'n-4', kind: 'feedback', icon: 'star', title: 'New 5★ review', body: 'Nadia Petrova on the Conservatory Spa', ts: now - 1000 * 60 * 60 * 4, read: true },
+  { id: 'n-1', audience: 'staff', kind: 'booking', icon: 'calendar', title: 'New reservation · LS-8851', body: 'Oliver Bennett — Poolside Cabana, 3 nights', ts: now - 1000 * 60 * 9, read: false },
+  { id: 'n-2', audience: 'staff', kind: 'service', icon: 'car', title: 'Service request · Room 301', body: 'Airport transfer — Changi T3, sedan', ts: now - 1000 * 60 * 52, read: false },
+  { id: 'n-3', audience: 'staff', kind: 'maintenance', icon: 'wrench', title: 'Maintenance logged · Room 208', body: 'Bathroom faucet dripping', ts: now - 1000 * 60 * 96, read: false },
+  { id: 'n-4', audience: 'staff', kind: 'feedback', icon: 'star', title: 'New 5★ review', body: 'Nadia Petrova on the Conservatory Spa', ts: now - 1000 * 60 * 60 * 4, read: true },
 ];
 
 export function DataProvider({ children }) {
@@ -70,7 +70,7 @@ export function DataProvider({ children }) {
   /* ----------------------- Notifications ------------------------ */
   const pushNotification = useCallback((n) => {
     setNotifications((list) => [
-      { id: nextId('n'), ts: Date.now(), read: false, kind: 'system', icon: 'bell', ...n },
+      { id: nextId('n'), ts: Date.now(), read: false, audience: 'staff', kind: 'system', icon: 'bell', ...n },
       ...list,
     ].slice(0, 40));
   }, []);
@@ -79,11 +79,13 @@ export function DataProvider({ children }) {
     setNotifications((list) => list.map((n) => (n.id === id ? { ...n, read: true } : n)));
   }, []);
 
-  const markAllNotificationsRead = useCallback(() => {
-    setNotifications((list) => list.map((n) => ({ ...n, read: true })));
+  const markAllNotificationsRead = useCallback((audience) => {
+    setNotifications((list) => list.map((n) => (!audience || n.audience === audience ? { ...n, read: true } : n)));
   }, []);
 
-  const clearNotifications = useCallback(() => setNotifications([]), []);
+  const clearNotifications = useCallback((audience) => setNotifications((list) =>
+    audience ? list.filter((n) => n.audience !== audience) : []
+  ), []);
 
   // Low-availability alert — fires once per high-occupancy episode.
   const lowAlerted = useRef(false);
@@ -181,6 +183,14 @@ export function DataProvider({ children }) {
         kind: 'booking', icon: 'calendar',
         title: `New reservation · ${code}`,
         body: `${who} — ${roomTypeById[res.typeId]?.name || 'suite'}, ${res.roomNo || 'room on arrival'}`,
+      });
+    }
+    if (res.guestEmail) {
+      pushNotification({
+        audience: `guest:${res.guestEmail.toLowerCase()}`,
+        kind: 'booking', icon: 'calendar',
+        title: `Reservation confirmed · ${code}`,
+        body: `${roomTypeById[res.typeId]?.name || 'Your stay'} · ${res.checkIn} to ${res.checkOut}`,
       });
     }
     return res;

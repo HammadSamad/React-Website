@@ -74,6 +74,8 @@ export default function Account() {
 
               <div className="acct-side__actions">
                 <Link to="/booking" className="btn btn--block"><Icon name="calendar" size={16} /> Reserve a stay</Link>
+                <Link to="/profile" className="btn btn--outline btn--block"><Icon name="edit" size={16} /> Edit profile</Link>
+                <Link to="/notifications" className="btn btn--outline btn--block"><Icon name="bell" size={16} /> Notifications</Link>
                 <button className="btn btn--outline btn--block" onClick={logout}><Icon name="logout" size={16} /> Sign out</button>
               </div>
             </div>

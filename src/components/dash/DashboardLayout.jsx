@@ -18,6 +18,7 @@ const NAV = [
   { to: '/dashboard/feedback', label: 'Feedback', icon: 'chat', roles: ['admin', 'manager'] },
   { to: '/dashboard/reports', label: 'Reports', icon: 'chart', roles: ['admin', 'manager'] },
   { to: '/dashboard/staff', label: 'Staff', icon: 'shield', roles: ['admin', 'manager'] },
+  { to: '/dashboard/notifications', label: 'Notifications', icon: 'bell', roles: ['admin', 'manager'] },
   { to: '/dashboard/settings', label: 'System', icon: 'settings', roles: ['admin'] },
 ];
 
@@ -47,7 +48,8 @@ export default function DashboardLayout() {
   const [notifOpen, setNotifOpen] = useState(false);
   const bellRef = useRef(null);
 
-  const unread = notifications.filter((n) => !n.read).length;
+  const staffNotifications = notifications.filter((n) => n.audience !== 'guest' && !n.audience?.startsWith('guest:'));
+  const unread = staffNotifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     setOpen(false);
@@ -150,14 +152,14 @@ export default function DashboardLayout() {
                         <span className="notif-panel__sub">{unread > 0 ? `${unread} unread` : 'All caught up'}</span>
                       </div>
                       {unread > 0 && (
-                        <button className="notif-panel__action" onClick={markAllNotificationsRead}>Mark all read</button>
+                        <button className="notif-panel__action" onClick={() => markAllNotificationsRead('staff')}>Mark all read</button>
                       )}
                     </div>
                     <div className="notif-list">
-                      {notifications.length === 0 && (
+                      {staffNotifications.length === 0 && (
                         <div className="notif-empty"><Icon name="bell" size={24} /><p>No notifications yet.</p></div>
                       )}
-                      {notifications.map((n) => (
+                      {staffNotifications.slice(0, 5).map((n) => (
                         <button
                           key={n.id}
                           className={`notif-item ${n.read ? '' : 'is-unread'}`}
@@ -173,9 +175,9 @@ export default function DashboardLayout() {
                         </button>
                       ))}
                     </div>
-                    {notifications.length > 0 && (
+                    {staffNotifications.length > 0 && (
                       <div className="notif-panel__foot">
-                        <button className="notif-panel__action" onClick={clearNotifications}>Clear all</button>
+                        <Link className="notif-panel__action" to="/dashboard/notifications">View all</Link>
                       </div>
                     )}
                   </motion.div>

@@ -12,20 +12,20 @@ export default function Signup() {
   const { notify } = useData();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [error, setError] = useState('');
   const [show, setShow] = useState(false);
 
   const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setError(''); };
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    if (form.password.length < 6) return setError('Please choose a password of at least 6 characters.');
+    if (form.password.length < 8) return setError('Please choose a password of at least 8 characters.');
     if (form.password !== form.confirm) return setError('Those passwords do not match.');
-    const res = signup({ name: form.name, email: form.email, password: form.password });
+    const res = await signup({ name: form.name, email: form.email, phone: form.phone, password: form.password });
     if (res.ok) {
-      notify(`Welcome, ${res.user.name.split(' ')[0]} — your account is ready.`);
-      navigate('/', { replace: true });
+      notify('Your verification code has been sent.');
+      navigate(`/verify-email?email=${encodeURIComponent(form.email)}`, { replace: true });
     } else {
       setError(res.error || 'We could not create your account.');
     }
@@ -78,11 +78,12 @@ export default function Signup() {
               <input className="input" type="email" required autoComplete="email"
                 value={form.email} onChange={set('email')} placeholder="you@email.com" />
             </label>
+            <label className="field"><span className="field-label">Phone</span><input className="input" required autoComplete="tel" value={form.phone} onChange={set('phone')} placeholder="+92 …" /></label>
             <label className="field">
               <span className="field-label">Password</span>
               <div className="login__password">
                 <input className="input" type={show ? 'text' : 'password'} required autoComplete="new-password"
-                  value={form.password} onChange={set('password')} placeholder="At least 6 characters" />
+                  value={form.password} onChange={set('password')} placeholder="At least 8 characters" />
                 <button type="button" className="login__peek" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'}>
                   <Icon name="eye" size={16} />
                 </button>

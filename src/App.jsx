@@ -31,6 +31,10 @@ import FeedbackPage from './pages/dash/Feedback.jsx';
 import Reports from './pages/dash/Reports.jsx';
 import Staff from './pages/dash/Staff.jsx';
 import Settings from './pages/dash/Settings.jsx';
+import Notifications from './pages/dash/Notifications.jsx';
+import Profile from './pages/site/Profile.jsx';
+import UserNotifications from './pages/site/UserNotifications.jsx';
+import VerifyEmail from './pages/site/VerifyEmail.jsx';
 
 const FRONT_DESK = ['admin', 'manager', 'receptionist'];
 const STAFF = ['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance'];
@@ -52,7 +56,10 @@ export default function App() {
           <Route path="/booking" element={<Booking />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/account" element={<ProtectedRoute roles={['guest']}><Account /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute roles={['guest']}><Profile /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute roles={['guest']}><UserNotifications /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Route>
 
@@ -75,6 +82,7 @@ export default function App() {
           <Route path="feedback" element={<ProtectedRoute roles={['admin', 'manager']}><FeedbackPage /></ProtectedRoute>} />
           <Route path="reports" element={<ProtectedRoute roles={['admin', 'manager']}><Reports /></ProtectedRoute>} />
           <Route path="staff" element={<ProtectedRoute roles={['admin', 'manager']}><Staff /></ProtectedRoute>} />
+          <Route path="notifications" element={<ProtectedRoute roles={['admin', 'manager']}><Notifications /></ProtectedRoute>} />
           <Route path="settings" element={<ProtectedRoute roles={['admin']}><Settings /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>

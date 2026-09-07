@@ -51,6 +51,25 @@
 
 .acct-side__actions { display: grid; gap: 0.6rem; margin-top: 1.75rem; }
 
+/* ---------------------------- Profile / inbox ------------------------- */
+.profile-form { padding: clamp(1.4rem, 4vw, 2.3rem); }
+.profile-form__sub { margin-top: 0.3rem; color: var(--ink-muted); font-size: 0.84rem; }
+.profile-form__prefs { display: block; margin-top: 1.15rem; }
+.profile-form__prefs small { display: block; color: var(--ink-muted); font-size: 0.75rem; margin-top: 0.45rem; }
+.profile-form__foot { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--bone-3); }
+.profile-form__saved { display: inline-flex; align-items: center; gap: 0.4rem; margin-right: auto; color: #47705a; font-size: 0.82rem; }
+.user-notifications { padding: clamp(1.4rem, 4vw, 2.3rem); }
+.user-notifications__actions { display: inline-flex; gap: .8rem; align-items: center; }
+.user-notification-list { display: flex; flex-direction: column; }
+.user-notification { position: relative; display: flex; align-items: center; gap: 1rem; width: 100%; padding: 1rem .25rem; text-align: left; border-bottom: 1px solid var(--bone-3); }
+.user-notification:last-child { border-bottom: 0; }
+.user-notification.is-unread { margin: 0 -.5rem; padding-left: .75rem; padding-right: .75rem; background: rgba(195,161,91,.08); border-radius: var(--r-sm); }
+.user-notification > span:nth-child(2) { display: grid; gap: .18rem; flex: 1; min-width: 0; }
+.user-notification strong { color: var(--ink-text); font-weight: 500; font-size: .9rem; }
+.user-notification small, .user-notification time { color: var(--ink-muted); font-size: .78rem; }
+.user-notification time { padding-right: .9rem; white-space: nowrap; }
+.user-notification i { position: absolute; right: .1rem; width: 7px; height: 7px; border-radius: 50%; background: var(--brass); }
+
 /* ------------------------------- Records ---------------------------- */
 .acct-main { display: flex; flex-direction: column; gap: 2.75rem; }
 
@@ -133,4 +152,8 @@
   .acct-res__media { width: 100%; height: 160px; }
   .acct-res__side { flex-direction: row; width: 100%; justify-content: space-between; align-items: center; }
   .acct-inv__side { flex-direction: column; align-items: flex-end; gap: 0.4rem; }
+  .profile-form__foot { align-items: flex-end; flex-direction: column; }
+  .profile-form__saved { margin-right: auto; }
+  .user-notifications__actions { gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
+  .user-notification time { display: none; }
 }

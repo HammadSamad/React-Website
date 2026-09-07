@@ -27,7 +27,7 @@ const slide = {
 export default function Booking() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { addGuest, addReservation, rooms, settings } = useData();
+  const { addGuest, updateGuest, guests, addReservation, rooms, settings } = useData();
   const { user, isAuthed } = useAuth();
   const rate = (id) => settings.rates?.[id] ?? roomTypeById[id].price;
 
@@ -66,10 +66,16 @@ export default function Booking() {
   );
 
   const confirm = () => {
-    const g = addGuest({ name: guest.name, email: guest.email, phone: guest.phone, country: guest.country || '—' });
+    const existingGuest = isAuthed && user?.role === 'guest'
+      ? guests.find((entry) => entry.email?.toLowerCase() === user.email?.toLowerCase())
+      : null;
+    const profile = { name: guest.name, email: guest.email, phone: guest.phone, country: guest.country || '—' };
+    const g = existingGuest || addGuest(profile);
+    if (existingGuest) updateGuest(existingGuest.id, profile);
     const res = addReservation({
       guestId: g.id,
       guestName: guest.name,
+      guestEmail: guest.email,
       typeId: stay.typeId,
       roomNo: availableRoom,
       checkIn: stay.checkIn,
@@ -219,6 +225,7 @@ export default function Booking() {
                 </div>
                 <div className="booking-done__actions">
                   <Link to="/" className="btn">Return home</Link>
+                  {isAuthed && user?.role === 'guest' && <Link to="/notifications" className="btn btn--outline">View notifications</Link>}
                   <Link to="/rooms" className="btn btn--outline">Browse more suites</Link>
                 </div>
               </motion.div>

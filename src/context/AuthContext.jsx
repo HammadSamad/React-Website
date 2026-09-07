@@ -1,102 +1,83 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { demoAccounts, roleLabels } from '../data/hotel.js';
+import { roleLabels } from '../data/hotel.js';
+import { api } from '../lib/api.js';
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = 'luxurystay.auth';
-const REGISTRY_KEY = 'luxurystay.accounts';
-
-/* Locally-registered accounts (created via the signup page). Stored
-   separately from the active session so a sign-out doesn't lose them.
-   This mirrors what a real /auth/register + /auth/login pair would do. */
-function loadRegistry() {
-  try {
-    const saved = localStorage.getItem(REGISTRY_KEY);
-    return saved ? JSON.parse(saved) : [];
-  } catch {
-    return [];
-  }
-}
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
+  const [session, setSession] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      return parsed.user ? { user: parsed.user } : { user: parsed };
     } catch {
       return null;
     }
   });
-  const [registry, setRegistry] = useState(loadRegistry);
+  const user = session?.user || null;
 
   useEffect(() => {
     try {
-      if (user) localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+      if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
       else localStorage.removeItem(STORAGE_KEY);
     } catch {
       /* ignore storage errors */
     }
-  }, [user]);
+  }, [session]);
 
+  // The browser sends the HTTP-only cookie; use the server as the source of
+  // truth whenever the app starts and never persist the JWT in JavaScript.
   useEffect(() => {
-    try {
-      localStorage.setItem(REGISTRY_KEY, JSON.stringify(registry));
-    } catch {
-      /* ignore storage errors */
-    }
-  }, [registry]);
+    let active = true;
+    api('/users/me').then((account) => {
+      if (active) setSession({ user: { ...account, id: account.id || account._id, name: account.username, roleLabel: roleLabels[account.role] || 'Guest' } });
+    }).catch(() => { if (active) setSession(null); });
+    return () => { active = false; };
+  }, []);
 
   const startSession = (account) => {
-    const session = { ...account, roleLabel: roleLabels[account.role] || 'Guest' };
-    delete session.password;
-    setUser(session);
-    return session;
+    const nextUser = { ...account, name: account.name || account.username, roleLabel: roleLabels[account.role] || 'Guest' };
+    setSession({ user: nextUser });
+    api('/users/me').then((fullUser) => {
+      setSession({ user: { ...fullUser, id: fullUser.id || fullUser._id, name: fullUser.username, roleLabel: roleLabels[fullUser.role] || 'Guest' } });
+    }).catch(() => {});
+    return nextUser;
   };
 
   // Demo staff accounts accept any password; registered accounts check theirs.
-  function login(email, password) {
-    const clean = String(email).trim().toLowerCase();
-    const demo = demoAccounts.find((a) => a.email.toLowerCase() === clean);
-    if (demo) return { ok: true, user: startSession(demo) };
-
-    const account = registry.find((a) => a.email.toLowerCase() === clean);
-    if (!account) {
-      return { ok: false, error: 'No account found for that email. Create one, or try a demo account.' };
-    }
-    if (account.password !== password) {
-      return { ok: false, error: 'That password does not match our records.' };
-    }
-    return { ok: true, user: startSession(account) };
+  async function login(email, password) {
+    try {
+      const result = await api('/auth/login', { method: 'POST', body: { email, password } });
+      return { ok: true, user: startSession(result.user) };
+    } catch (error) { return { ok: false, error: error.message, code: error.code }; }
   }
 
   // Create a new guest account, then sign in.
-  function signup({ name, email, password }) {
-    const clean = String(email).trim().toLowerCase();
-    if (!name?.trim() || !clean || !password) {
-      return { ok: false, error: 'Please complete every field to continue.' };
-    }
-    const taken =
-      demoAccounts.some((a) => a.email.toLowerCase() === clean) ||
-      registry.some((a) => a.email.toLowerCase() === clean);
-    if (taken) {
-      return { ok: false, error: 'An account with that email already exists. Try signing in.' };
-    }
-    const account = {
-      email: clean,
-      password,
-      role: 'guest',
-      name: name.trim(),
-      title: 'Guest',
-    };
-    setRegistry((r) => [...r, account]);
-    return { ok: true, user: startSession(account) };
+  async function signup({ name, email, password, phone }) {
+    try { return { ok: true, ...(await api('/auth/register', { method: 'POST', body: { username: name, email, password, phone } })) }; }
+    catch (error) { return { ok: false, error: error.message }; }
   }
 
-  function logout() {
-    setUser(null);
+  async function logout() {
+    try { await api('/auth/logout', { method: 'POST' }); } catch { /* the local session must still end */ }
+    setSession(null);
+  }
+
+  // Keep the active session and a locally-created account in sync. Demo users
+  // are session-only, which matches the rest of this frontend demo.
+  async function updateProfile(patch) {
+    try {
+      const result = await api('/users/profile', { method: 'PUT', body: { username: patch.name, email: patch.email, phone: patch.phone, address: patch.address, city: patch.city, country: patch.country, preferences: patch.preferences?.join(', ') } });
+      const next = { ...user, ...result.user, name: result.user.username, roleLabel: user.roleLabel };
+      setSession((current) => ({ ...current, user: next }));
+      return { ok: true, user: next, verificationRequired: result.verificationRequired };
+    } catch (error) { return { ok: false, error: error.message }; }
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, isAuthed: !!user }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updateProfile, isAuthed: !!user }}>
       {children}
     </AuthContext.Provider>
   );
