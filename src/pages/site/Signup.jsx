@@ -5,8 +5,6 @@ import Icon from '../../components/common/Icon.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useData } from '../../context/DataContext.jsx';
 import { img } from '../../lib/images.js';
-import './Login.css';
-
 export default function Signup() {
   const { signup } = useAuth();
   const { notify } = useData();
@@ -15,13 +13,25 @@ export default function Signup() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [error, setError] = useState('');
   const [show, setShow] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setError(''); };
+  const setName = (e) => { setForm((f) => ({ ...f, name: e.target.value.replace(/[^A-Za-z\s]/g, '') })); setError(''); };
+  const setPhone = (e) => { setForm((f) => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 15) })); setError(''); };
 
   const submit = async (e) => {
     e.preventDefault();
+    if (form.name.length < 4) return setError('Full name must contain at least 4 letters.');
     if (form.password.length < 8) return setError('Please choose a password of at least 8 characters.');
     if (form.password !== form.confirm) return setError('Those passwords do not match.');
+
+    const nameRegex = /^(?=(?:[^A-Za-z]*[A-Za-z]){4})[A-Za-z]+(?:\s+[A-Za-z]+)*$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^\d{11,15}$/;
+    if (!nameRegex.test(form.name)) return setError('Full name must contain at least 4 letters — numbers and special characters are not allowed.');
+    if (!emailRegex.test(form.email)) return setError('Please enter a valid email address.');
+    if (!phoneRegex.test(form.phone)) return setError('Phone number must be 11 to 15 digits — numbers only.');
+
     const res = await signup({ name: form.name, email: form.email, phone: form.phone, password: form.password });
     if (res.ok) {
       notify('Your verification code has been sent.');
@@ -57,7 +67,7 @@ export default function Signup() {
       </div>
 
       {/* Form side */}
-      <div className="login__form-side">
+      <div className="login__form-side on-light">
         <motion.div
           className="login__form-wrap"
           initial={{ opacity: 0, y: 20 }}
@@ -70,19 +80,19 @@ export default function Signup() {
           <form onSubmit={submit} className="login__form">
             <label className="field">
               <span className="field-label">Full name</span>
-              <input className="input" type="text" required autoComplete="name"
-                value={form.name} onChange={set('name')} placeholder="Jane Doe" />
+              <input className="input" type="text" required autoComplete="name" pattern="^(?=(?:[^A-Za-z]*[A-Za-z]){4})[A-Za-z]+(?:\s+[A-Za-z]+)*$" title="Full name must contain at least 4 letters (no numbers or special characters)"
+                value={form.name} onChange={setName} placeholder="Jane Doe" />
             </label>
             <label className="field">
               <span className="field-label">Email</span>
-              <input className="input" type="email" required autoComplete="email"
+              <input className="input" type="email" name="email" required autoComplete="email" pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$" title="Please enter a valid email address"
                 value={form.email} onChange={set('email')} placeholder="you@email.com" />
             </label>
-            <label className="field"><span className="field-label">Phone</span><input className="input" required autoComplete="tel" value={form.phone} onChange={set('phone')} placeholder="+92 …" /></label>
+            <label className="field"><span className="field-label">Phone</span><input className="input" name="tel" required autoComplete="tel" inputMode="numeric" maxLength="15" pattern="^\d{11,15}$" title="Phone number must be 11 to 15 digits — numbers only" value={form.phone} onChange={setPhone} placeholder="e.g. 03001234567" /></label>
             <label className="field">
               <span className="field-label">Password</span>
               <div className="login__password">
-                <input className="input" type={show ? 'text' : 'password'} required autoComplete="new-password"
+                <input className="input" type={show ? 'text' : 'password'} name="new-password" required autoComplete="new-password" pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$" title="Password must be at least 8 characters, with one uppercase, one lowercase, one number and one special character"
                   value={form.password} onChange={set('password')} placeholder="At least 8 characters" />
                 <button type="button" className="login__peek" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'}>
                   <Icon name="eye" size={16} />
@@ -91,8 +101,13 @@ export default function Signup() {
             </label>
             <label className="field">
               <span className="field-label">Confirm password</span>
-              <input className="input" type={show ? 'text' : 'password'} required autoComplete="new-password"
-                value={form.confirm} onChange={set('confirm')} placeholder="Re-enter your password" />
+              <div className="login__password">
+                <input className="input" type={showConfirm ? 'text' : 'password'} required autoComplete="new-password" pattern={form.password ? `^${form.password.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$` : undefined} title="Passwords must match"
+                  value={form.confirm} onChange={set('confirm')} placeholder="Re-enter your password" />
+                <button type="button" className="login__peek" onClick={() => setShowConfirm((s) => !s)} aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}>
+                  <Icon name="eye" size={16} />
+                </button>
+              </div>
             </label>
 
             {error && (

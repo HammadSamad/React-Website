@@ -20,6 +20,8 @@ const MAP = {
   open: ['maintenance', 'Open'],
   resolved: ['available', 'Resolved'],
   paid: ['available', 'Paid'],
+  refunded: ['maintenance', 'Refunded'],
+  failed: ['occupied', 'Failed'],
   // guest services
   requested: ['occupied', 'Requested'],
   scheduled: ['reserved', 'Scheduled'],

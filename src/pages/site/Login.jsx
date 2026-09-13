@@ -4,10 +4,8 @@ import { motion } from 'framer-motion';
 import Icon from '../../components/common/Icon.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { api } from '../../lib/api.js';
+import { authApi } from '../../lib/api.js';
 import { img } from '../../lib/images.js';
-import './Login.css';
-
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -17,7 +15,9 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [show, setShow] = useState(false);
+  const [showReset, setShowReset] = useState(false);
   const [forgot, setForgot] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [sent, setSent] = useState(false);
@@ -31,8 +31,8 @@ export default function Login() {
     if (res.ok) navigate(res.user.role === 'guest' ? '/account' : from, { replace: true });
     else { setError(res.error || 'Those credentials were not recognised.'); if (res.code === 'EMAIL_NOT_VERIFIED') navigate(`/verify-email?email=${encodeURIComponent(email)}`); }
   };
-  const requestReset = async () => { try { await api('/auth/forgot-password', { method: 'POST', body: { email: resetEmail } }); setSent(true); setResetError(''); } catch (e) { setResetError(e.message); } };
-  const resetPassword = async () => { try { await api('/auth/reset-password', { method: 'POST', body: { email: resetEmail, otp, password: newPassword } }); setForgot(false); setError('Password reset. You can now sign in.'); } catch (e) { setResetError(e.message); } };
+  const requestReset = async () => { try { await authApi.forgotPassword(resetEmail); setSent(true); setResetError(''); } catch (e) { setResetError(e.message); } };
+  const resetPassword = async () => { try { await authApi.resetPassword(resetEmail, otp, newPassword); setForgot(false); setError(''); setSuccess('Password reset. You can now sign in.'); } catch (e) { setResetError(e.message); } };
 
   return (
     <div className="login">
@@ -60,7 +60,7 @@ export default function Login() {
       </div>
 
       {/* Form side */}
-      <div className="login__form-side">
+      <div className="login__form-side on-light">
         <motion.div
           className="login__form-wrap"
           initial={{ opacity: 0, y: 20 }}
@@ -73,13 +73,13 @@ export default function Login() {
           <form onSubmit={submit} className="login__form">
             <label className="field">
               <span className="field-label">Email</span>
-              <input className="input" type="email" required autoComplete="username"
+              <input className="input" type="email" name="email" required autoComplete="username" pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$" title="Please enter a valid email address"
                 value={email} onChange={(e) => { setEmail(e.target.value); setError(''); }} placeholder="you@luxurystay.com" />
             </label>
             <label className="field">
               <span className="field-label">Password</span>
               <div className="login__password">
-                <input className="input" type={show ? 'text' : 'password'} required autoComplete="current-password"
+                <input className="input" type={show ? 'text' : 'password'} name="password" required autoComplete="current-password" pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$" title="Password must be at least 8 characters, with one uppercase, one lowercase, one number and one special character"
                   value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} placeholder="••••••••" />
                 <button type="button" className="login__peek" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'}>
                   <Icon name="eye" size={16} />
@@ -90,6 +90,12 @@ export default function Login() {
             {error && (
               <motion.p className="login__error" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
                 <Icon name="info" size={15} /> {error}
+              </motion.p>
+            )}
+
+            {success && (
+              <motion.p className="login__success" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
+                <Icon name="check" size={15} /> {success}
               </motion.p>
             )}
 
@@ -109,8 +115,8 @@ export default function Login() {
       <Modal
         open={forgot}
         onClose={() => setForgot(false)}
-        title={sent ? 'Enter your reset code' : 'Reset your password'}
-        subtitle={sent ? 'Use the six-digit code sent to your email.' : 'We’ll send a secure reset code to your email.'}
+title={sent ? 'Enter your reset code' : 'Reset your password'}
+          subtitle={sent ? 'Use the six-digit code sent to your email.' : "We'll send a secure reset code to your email."}
         footer={sent
           ? <><button className="btn btn--outline" onClick={() => setForgot(false)}>Cancel</button><button className="btn" disabled={!/^\d{6}$/.test(otp) || newPassword.length < 8} onClick={resetPassword}>Reset password</button></>
           : <>
@@ -121,7 +127,14 @@ export default function Login() {
         {sent ? (
           <p className="text-muted" style={{ lineHeight: 1.7 }}>
             <label className="field"><span className="field-label">Verification code</span><input className="input" inputMode="numeric" maxLength="6" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6-digit code" /></label>
-            <label className="field" style={{ marginTop: '1rem' }}><span className="field-label">New password</span><input className="input" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" /></label>
+            <label className="field" style={{ marginTop: '1rem' }}><span className="field-label">New password</span>
+              <div className="login__password">
+                <input className="input" type={showReset ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" />
+                <button type="button" className="login__peek" onClick={() => setShowReset((s) => !s)} aria-label={showReset ? 'Hide new password' : 'Show new password'}>
+                  <Icon name="eye" size={16} />
+                </button>
+              </div>
+            </label>
           </p>
         ) : (
           <label className="field">

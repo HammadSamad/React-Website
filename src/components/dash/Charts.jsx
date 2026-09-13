@@ -9,7 +9,7 @@ export function AreaChart({ data, color = '#c3a15b', height = 220, labels }) {
   const W = 100, H = 44;
   const max = Math.max(...data), min = Math.min(...data);
   const range = max - min || 1;
-  const step = W / (data.length - 1);
+  const step = data.length > 1 ? W / (data.length - 1) : W;
   const pts = data.map((v, i) => [i * step, H - ((v - min) / range) * (H - 6) - 3]);
   const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join(' ');
   const area = `${line} L ${W} ${H} L 0 ${H} Z`;
@@ -140,7 +140,7 @@ export function ChartLegend({ items }) {
 export function Spark({ data, color = '#c3a15b', width = 90, height = 30 }) {
   const max = Math.max(...data), min = Math.min(...data);
   const range = max - min || 1;
-  const step = width / (data.length - 1);
+  const step = data.length > 1 ? width / (data.length - 1) : width;
   const line = data.map((v, i) => `${i ? 'L' : 'M'}${(i * step).toFixed(1)} ${(height - ((v - min) / range) * height).toFixed(1)}`).join(' ');
   return (
     <svg width={width} height={height} className="spark">

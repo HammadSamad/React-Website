@@ -27,6 +27,7 @@ import Guests from './pages/dash/Guests.jsx';
 import Housekeeping from './pages/dash/Housekeeping.jsx';
 import Services from './pages/dash/Services.jsx';
 import Billing from './pages/dash/Billing.jsx';
+import Payments from './pages/dash/Payments.jsx';
 import FeedbackPage from './pages/dash/Feedback.jsx';
 import Reports from './pages/dash/Reports.jsx';
 import Staff from './pages/dash/Staff.jsx';
@@ -34,6 +35,7 @@ import Settings from './pages/dash/Settings.jsx';
 import Notifications from './pages/dash/Notifications.jsx';
 import Profile from './pages/site/Profile.jsx';
 import UserNotifications from './pages/site/UserNotifications.jsx';
+import SiteBilling from './pages/site/Billing.jsx';
 import VerifyEmail from './pages/site/VerifyEmail.jsx';
 
 const FRONT_DESK = ['admin', 'manager', 'receptionist'];
@@ -60,6 +62,7 @@ export default function App() {
           <Route path="/account" element={<ProtectedRoute roles={['guest']}><Account /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute roles={['guest']}><Profile /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute roles={['guest']}><UserNotifications /></ProtectedRoute>} />
+          <Route path="/billing" element={<ProtectedRoute roles={['guest']}><SiteBilling /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Route>
 
@@ -76,13 +79,14 @@ export default function App() {
           <Route path="reservations" element={<ProtectedRoute roles={FRONT_DESK}><Reservations /></ProtectedRoute>} />
           <Route path="rooms" element={<DashRooms />} />
           <Route path="guests" element={<ProtectedRoute roles={FRONT_DESK}><Guests /></ProtectedRoute>} />
-          <Route path="housekeeping" element={<ProtectedRoute roles={['admin', 'manager', 'housekeeping', 'maintenance']}><Housekeeping /></ProtectedRoute>} />
+          <Route path="housekeeping" element={<ProtectedRoute roles={['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance']}><Housekeeping /></ProtectedRoute>} />
           <Route path="services" element={<ProtectedRoute roles={['admin', 'manager', 'receptionist', 'housekeeping']}><Services /></ProtectedRoute>} />
           <Route path="billing" element={<ProtectedRoute roles={FRONT_DESK}><Billing /></ProtectedRoute>} />
+          <Route path="payments" element={<ProtectedRoute roles={FRONT_DESK}><Payments /></ProtectedRoute>} />
           <Route path="feedback" element={<ProtectedRoute roles={['admin', 'manager']}><FeedbackPage /></ProtectedRoute>} />
           <Route path="reports" element={<ProtectedRoute roles={['admin', 'manager']}><Reports /></ProtectedRoute>} />
           <Route path="staff" element={<ProtectedRoute roles={['admin', 'manager']}><Staff /></ProtectedRoute>} />
-          <Route path="notifications" element={<ProtectedRoute roles={['admin', 'manager']}><Notifications /></ProtectedRoute>} />
+          <Route path="notifications" element={<ProtectedRoute roles={STAFF}><Notifications /></ProtectedRoute>} />
           <Route path="settings" element={<ProtectedRoute roles={['admin']}><Settings /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>

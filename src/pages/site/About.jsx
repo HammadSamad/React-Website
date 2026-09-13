@@ -5,8 +5,6 @@ import CountUp from '../../components/common/CountUp.jsx';
 import Icon from '../../components/common/Icon.jsx';
 import { hotelInfo } from '../../data/hotel.js';
 import { img } from '../../lib/images.js';
-import './About.css';
-
 const values = [
   { icon: 'leaf', title: 'Quiet luxury', text: 'We believe true luxury is calm — space to breathe, details that never shout, service you feel rather than see.' },
   { icon: 'sparkles', title: 'Craft in everything', text: 'From the turndown ritual to the garden menu, each touchpoint is composed by hand and considered twice.' },

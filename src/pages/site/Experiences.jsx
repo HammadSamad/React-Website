@@ -4,8 +4,6 @@ import Reveal from '../../components/common/Reveal.jsx';
 import Icon from '../../components/common/Icon.jsx';
 import { experiences } from '../../data/hotel.js';
 import { img } from '../../lib/images.js';
-import './Experiences.css';
-
 const iconFor = { spa: 'sparkles', pool: 'waves', dining: 'dining', bar: 'glass', fitness: 'fitness', events: 'award' };
 
 export default function Experiences() {

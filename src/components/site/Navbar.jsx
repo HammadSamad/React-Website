@@ -14,7 +14,7 @@ const links = [
   { to: '/contact', label: 'Contact' },
 ];
 
-export default function Navbar() {
+export default function Navbar({ solid = false }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
@@ -54,7 +54,7 @@ export default function Navbar() {
   }, [open]);
 
   return (
-    <header className={`nav ${scrolled ? 'nav--solid' : ''}`}>
+    <header className={`nav ${scrolled || solid ? 'nav--solid' : ''}`}>
       <div className="nav__inner container container--wide">
 
         {/* Logo */}

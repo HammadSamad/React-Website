@@ -8,4 +8,21 @@ export default defineConfig({
     port: 5173,
     open: false,
   },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.js',
+    css: false,
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-framer': ['framer-motion'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
 })

@@ -4,32 +4,32 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Icon from '../common/Icon.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useData } from '../../context/DataContext.jsx';
-import { TODAY } from '../../data/hotel.js';
-import '../../styles/dashboard.css';
-
+import { MODULE_BY_ROUTE } from '../../data/hotel.js';
+import { useNow } from '../../lib/useNow.js';
 const NAV = [
   { to: '/dashboard', label: 'Overview', icon: 'dashboard', end: true },
   { to: '/dashboard/reservations', label: 'Reservations', icon: 'calendar', roles: ['admin', 'manager', 'receptionist'] },
   { to: '/dashboard/rooms', label: 'Rooms', icon: 'door' },
   { to: '/dashboard/guests', label: 'Guests', icon: 'users', roles: ['admin', 'manager', 'receptionist'] },
-  { to: '/dashboard/housekeeping', label: 'Housekeeping', icon: 'broom', roles: ['admin', 'manager', 'housekeeping', 'maintenance'] },
+  { to: '/dashboard/housekeeping', label: 'Housekeeping', icon: 'broom', roles: ['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance'] },
   { to: '/dashboard/services', label: 'Services', icon: 'sparkles', roles: ['admin', 'manager', 'receptionist', 'housekeeping'] },
   { to: '/dashboard/billing', label: 'Billing', icon: 'receipt', roles: ['admin', 'manager', 'receptionist'] },
+  { to: '/dashboard/payments', label: 'Payments', icon: 'creditCard', roles: ['admin', 'manager', 'receptionist'] },
   { to: '/dashboard/feedback', label: 'Feedback', icon: 'chat', roles: ['admin', 'manager'] },
   { to: '/dashboard/reports', label: 'Reports', icon: 'chart', roles: ['admin', 'manager'] },
   { to: '/dashboard/staff', label: 'Staff', icon: 'shield', roles: ['admin', 'manager'] },
-  { to: '/dashboard/notifications', label: 'Notifications', icon: 'bell', roles: ['admin', 'manager'] },
+  { to: '/dashboard/notifications', label: 'Notifications', icon: 'bell', roles: ['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance'] },
   { to: '/dashboard/settings', label: 'System', icon: 'settings', roles: ['admin'] },
 ];
 
 const initials = (name = '') => name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-const greeting = () => {
-  const h = new Date().getHours();
-  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-};
-const longDate = new Date(TODAY + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const greeting = (h) => (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening');
 
-function timeAgo(ts) {
+function timeAgo(value) {
+  const ts = value instanceof Date ? value.getTime()
+    : typeof value === 'number' ? value
+    : value ? new Date(value).getTime() : 0;
+  if (!ts) return '—';
   const s = Math.round((Date.now() - ts) / 1000);
   if (s < 60) return 'just now';
   const m = Math.round(s / 60);
@@ -41,15 +41,21 @@ function timeAgo(ts) {
 
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
-  const { notifications, markNotificationRead, markAllNotificationsRead, clearNotifications } = useData();
+  const now = useNow();
+  const longDate = now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const { notifications, markNotificationRead, markAllNotificationsRead, clearNotifications, rolePolicies } = useData();
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const bellRef = useRef(null);
+const staffNotifications = notifications.filter((n) => {
+    const aud = String(n.audience ?? '');
+    return aud !== 'guest' && !aud.startsWith('guest:');
+  });
+  const unread = staffNotifications.filter((n) => !(n.isRead ?? n.read)).length;
 
-  const staffNotifications = notifications.filter((n) => n.audience !== 'guest' && !n.audience?.startsWith('guest:'));
-  const unread = staffNotifications.filter((n) => !n.read).length;
+  const isUnread = (n) => !(n.isRead ?? n.read);
 
   useEffect(() => {
     setOpen(false);
@@ -67,7 +73,12 @@ export default function DashboardLayout() {
     return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
   }, [notifOpen]);
 
-  const links = NAV.filter((n) => !n.roles || n.roles.includes(user?.role));
+  const links = NAV.filter((n) => {
+    if (!n.roles) return true;
+    const moduleKey = MODULE_BY_ROUTE[n.to];
+    const policy = moduleKey && rolePolicies?.[user?.role] ? rolePolicies[user.role][moduleKey] : undefined;
+    return policy !== undefined ? policy : n.roles.includes(user?.role);
+  });
 
   const doLogout = () => { logout(); navigate('/'); };
 
@@ -125,7 +136,7 @@ export default function DashboardLayout() {
         <header className="dash-top">
           <button className="dash-top__burger" onClick={() => setOpen(true)} aria-label="Open menu"><Icon name="menu" size={20} /></button>
           <div className="dash-top__greet">
-            <span className="dash-top__hi">{greeting()}, {user?.name?.split(' ')[0]}</span>
+            <span className="dash-top__hi">{greeting(now.getHours())}, {user?.name?.split(' ')[0]}</span>
             <span className="dash-top__date">{longDate}</span>
           </div>
           <div className="dash-top__actions">
@@ -161,9 +172,9 @@ export default function DashboardLayout() {
                       )}
                       {staffNotifications.slice(0, 5).map((n) => (
                         <button
-                          key={n.id}
-                          className={`notif-item ${n.read ? '' : 'is-unread'}`}
-                          onClick={() => markNotificationRead(n.id)}
+                          key={n._id || n.id}
+                          className={`notif-item ${isUnread(n) ? 'is-unread' : ''}`}
+                          onClick={() => markNotificationRead(n._id || n.id)}
                         >
                           <span className="notif-item__icon"><Icon name={n.icon || 'bell'} size={16} /></span>
                           <span className="notif-item__main">
@@ -171,7 +182,7 @@ export default function DashboardLayout() {
                             {n.body && <span className="notif-item__body">{n.body}</span>}
                             <span className="notif-item__time">{timeAgo(n.ts)}</span>
                           </span>
-                          {!n.read && <span className="notif-item__dot" />}
+                          {isUnread(n) && <span className="notif-item__dot" />}
                         </button>
                       ))}
                     </div>

@@ -5,13 +5,11 @@ import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { DataProvider } from './context/DataContext.jsx';
 
-import './styles/global.css';
-import './styles/components.css';
-import './styles/site.css';
+import './index.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <DataProvider>
           <App />

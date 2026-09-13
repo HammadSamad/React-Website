@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import Logo from '../common/Logo.jsx';
 import Icon from '../common/Icon.jsx';
 import { hotelInfo } from '../../data/hotel.js';
+import { useNow } from '../../lib/useNow.js';
 
 const cols = [
   {
@@ -25,6 +26,7 @@ const cols = [
 ];
 
 export default function Footer() {
+  const year = useNow().getFullYear();
   return (
     <footer className="footer grain">
       <div className="container container--wide">
@@ -68,7 +70,7 @@ export default function Footer() {
         </div>
 
         <div className="footer__bottom">
-          <span>© {hotelInfo.established}–2026 {hotelInfo.full}. All rights reserved.</span>
+          <span>© {hotelInfo.established}–{year} {hotelInfo.full}. All rights reserved.</span>
           <span className="footer__coords">{hotelInfo.coords}</span>
           <div className="footer__legal">
             <a href="#" onClick={(e) => e.preventDefault()} className="link-underline">Privacy</a>

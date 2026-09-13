@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { roleLabels } from '../data/hotel.js';
-import { api } from '../lib/api.js';
+import { api, apiForm } from '../lib/api.js';
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = 'luxurystay.auth';
@@ -29,19 +29,22 @@ export function AuthProvider({ children }) {
 
   // The browser sends the HTTP-only cookie; use the server as the source of
   // truth whenever the app starts and never persist the JWT in JavaScript.
+  // When no local session exists the user is anonymous, so skip the probe
+  // entirely (it would only return a 401 / console error).
   useEffect(() => {
+    if (!localStorage.getItem(STORAGE_KEY)) return;
     let active = true;
     api('/users/me').then((account) => {
-      if (active) setSession({ user: { ...account, id: account.id || account._id, name: account.username, roleLabel: roleLabels[account.role] || 'Guest' } });
+      if (active) setSession({ user: { ...account, id: account.id || account._id, name: account.username, roleLabel: roleLabels[account.role] || 'Guest', profileImage: account.profileImage } });
     }).catch(() => { if (active) setSession(null); });
     return () => { active = false; };
   }, []);
 
   const startSession = (account) => {
-    const nextUser = { ...account, name: account.name || account.username, roleLabel: roleLabels[account.role] || 'Guest' };
+    const nextUser = { ...account, name: account.name || account.username, roleLabel: roleLabels[account.role] || 'Guest', profileImage: account.profileImage };
     setSession({ user: nextUser });
     api('/users/me').then((fullUser) => {
-      setSession({ user: { ...fullUser, id: fullUser.id || fullUser._id, name: fullUser.username, roleLabel: roleLabels[fullUser.role] || 'Guest' } });
+      setSession({ user: { ...fullUser, id: fullUser.id || fullUser._id, name: fullUser.username, roleLabel: roleLabels[fullUser.role] || 'Guest', profileImage: fullUser.profileImage } });
     }).catch(() => {});
     return nextUser;
   };
@@ -70,14 +73,26 @@ export function AuthProvider({ children }) {
   async function updateProfile(patch) {
     try {
       const result = await api('/users/profile', { method: 'PUT', body: { username: patch.name, email: patch.email, phone: patch.phone, address: patch.address, city: patch.city, country: patch.country, preferences: patch.preferences?.join(', ') } });
-      const next = { ...user, ...result.user, name: result.user.username, roleLabel: user.roleLabel };
+      const next = { ...user, ...result.user, name: result.user.username, roleLabel: user.roleLabel, profileImage: result.user.profileImage ?? user.profileImage };
       setSession((current) => ({ ...current, user: next }));
       return { ok: true, user: next, verificationRequired: result.verificationRequired };
     } catch (error) { return { ok: false, error: error.message }; }
   }
 
+  // Upload a new profile picture (multipart/form-data, field: profileImage)
+  async function updateProfilePicture(file) {
+    try {
+      const fd = new FormData();
+      fd.append('profileImage', file);
+      const result = await apiForm('/users/profile', { method: 'PUT', body: fd });
+      const next = { ...user, ...result.user, name: result.user.username ?? user.name, roleLabel: user.roleLabel, profileImage: result.user.profileImage };
+      setSession((current) => ({ ...current, user: next }));
+      return { ok: true, profileImage: result.user.profileImage };
+    } catch (error) { return { ok: false, error: error.message }; }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, updateProfile, isAuthed: !!user }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updateProfile, updateProfilePicture, isAuthed: !!user }}>
       {children}
     </AuthContext.Provider>
   );

@@ -3,13 +3,16 @@ import PageHero from '../../components/site/PageHero.jsx';
 import Reveal from '../../components/common/Reveal.jsx';
 import Stars from '../../components/common/Stars.jsx';
 import Icon from '../../components/common/Icon.jsx';
+import Select from '../../components/common/Select.jsx';
 import { useData } from '../../context/DataContext.jsx';
-import { testimonials, guestById } from '../../data/hotel.js';
-import './Reviews.css';
-
+import { testimonials } from '../../data/hotel.js';
 const CATEGORIES = ['Overall', 'Service', 'Room', 'Dining', 'Spa', 'Amenities'];
 const initials = (n = '') => n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+const fmt = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso.includes('T') ? iso : iso + 'T00:00:00');
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 const BLANK = { rating: 5, name: '', category: 'Overall', comment: '' };
 
 export default function Reviews() {
@@ -18,7 +21,7 @@ export default function Reviews() {
   const [hover, setHover] = useState(0);
   const [sent, setSent] = useState(false);
 
-  const nameOf = (f) => f.name || guestById[f.guestId]?.name || 'Guest';
+  const nameOf = (f) => f.guestId?.guestName || f.name || 'Guest';
 
   const total = feedback.length;
   const avg = useMemo(() => (total ? feedback.reduce((s, f) => s + f.rating, 0) / total : 0), [feedback, total]);
@@ -34,10 +37,8 @@ export default function Reviews() {
     if (!form.comment.trim()) return;
     addFeedback({
       rating: form.rating,
+      feedbackMessage: form.comment.trim(),
       category: form.category,
-      comment: form.comment.trim(),
-      name: form.name.trim() || 'Anonymous guest',
-      room: '',
     });
     setForm(BLANK);
     setSent(true);
@@ -107,16 +108,16 @@ export default function Reviews() {
               </Reveal>
               <div className="rv-list">
                 {feedback.slice(0, 9).map((f, i) => (
-                  <Reveal as="article" className="rv-card" key={f.id} delay={(i % 3) * 0.08}>
+                  <Reveal as="article" className="rv-card" key={f._id || f.id} delay={(i % 3) * 0.08}>
                     <div className="rv-card__top">
                       <span className="rv-card__avatar">{initials(nameOf(f))}</span>
                       <div className="rv-card__id">
                         <div className="rv-card__name">{nameOf(f)}</div>
-                        <div className="rv-card__meta">{f.category} · {fmt(f.date)}</div>
+                        <div className="rv-card__meta">{f.category || 'Overall'} · {fmt((f.feedbackDate || '').split('T')[0])}</div>
                       </div>
                     </div>
                     <Stars value={f.rating} size={13} />
-                    <p className="rv-card__comment">“{f.comment}”</p>
+                    <p className="rv-card__comment">“{f.feedbackMessage}”</p>
                   </Reveal>
                 ))}
               </div>
@@ -152,9 +153,13 @@ export default function Reviews() {
                 </label>
                 <label className="field">
                   <span className="field-label">Category</span>
-                  <select className="select" value={form.category} onChange={set('category')}>
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <Select
+                    variant="dark"
+                    label="Category"
+                    value={form.category}
+                    onChange={set('category')}
+                    options={CATEGORIES}
+                  />
                 </label>
                 <label className="field">
                   <span className="field-label">Your review</span>

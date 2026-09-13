@@ -1,21 +1,49 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import SmartImage from '../../components/common/SmartImage.jsx';
 import Reveal, { Words } from '../../components/common/Reveal.jsx';
 import Icon from '../../components/common/Icon.jsx';
+import Select from '../../components/common/Select.jsx';
 import CountUp from '../../components/common/CountUp.jsx';
 import Stars from '../../components/common/Stars.jsx';
 import RoomCard from '../../components/site/RoomCard.jsx';
 import { img } from '../../lib/images.js';
-import { roomTypes, experiences, testimonials, hotelInfo } from '../../data/hotel.js';
-import './Home.css';
+import { experiences, testimonials, hotelInfo, todayISO } from '../../data/hotel.js';
+import { useData } from '../../context/DataContext.jsx';
+function addDays(iso, n) {
+  if (!iso || iso.length < 10) return iso || '';
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  d.setDate(d.getDate() + n);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
-function BookingBar() {
+function BookingBar({ uniqueRooms }) {
   const nav = useNavigate();
-  const [form, setForm] = useState({ checkIn: '2026-08-26', checkOut: '2026-08-29', guests: '2', type: '' });
+  const [today, setToday] = useState(() => todayISO());
+  const [form, setForm] = useState(() => ({ checkIn: todayISO(), checkOut: addDays(todayISO(), 1), guests: '2', type: '' }));
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    const id = setInterval(() => setToday(todayISO()), 60000);
+    return () => clearInterval(id);
+  }, []);
   const submit = (e) => {
     e.preventDefault();
+    // Keep the minimum arrival date live so it tracks the current time.
+    setToday(todayISO());
+    if (!form.checkIn || form.checkIn < today) {
+      setErr('Arrival must be today or a later date.');
+      return;
+    }
+    if (!form.checkOut || form.checkOut <= form.checkIn) {
+      setErr('Departure must be at least one day after arrival.');
+      return;
+    }
+    setErr('');
     const q = new URLSearchParams(form).toString();
     nav(`/booking?${q}`);
   };
@@ -30,25 +58,33 @@ function BookingBar() {
       >
         <div className="bookbar__field">
           <label htmlFor="bb-in">Arrival</label>
-          <input id="bb-in" type="date" value={form.checkIn} onChange={(e) => setForm({ ...form, checkIn: e.target.value })} />
+          <input id="bb-in" type="date" required min={today} value={form.checkIn} onChange={(e) => { const v = e.target.value; if (v && v < today) return; setForm((f) => ({ ...f, checkIn: v, checkOut: v ? addDays(v, 1) : f.checkOut })); }} />
         </div>
         <div className="bookbar__field">
           <label htmlFor="bb-out">Departure</label>
-          <input id="bb-out" type="date" value={form.checkOut} onChange={(e) => setForm({ ...form, checkOut: e.target.value })} />
+          <input id="bb-out" type="date" required min={addDays(form.checkIn, 1)} value={form.checkOut} onChange={(e) => { const v = e.target.value; if (!v) { setForm((f) => ({ ...f, checkOut: v })); return; } const minOut = addDays(form.checkIn, 1); setForm((f) => ({ ...f, checkOut: v < minOut ? minOut : v })); }} />
         </div>
         <div className="bookbar__field">
-          <label htmlFor="bb-guests">Guests</label>
-          <select id="bb-guests" value={form.guests} onChange={(e) => setForm({ ...form, guests: e.target.value })}>
-            {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} {n === 1 ? 'guest' : 'guests'}</option>)}
-          </select>
+          <label>Guests</label>
+          <Select
+            variant="bare"
+            label="Guests"
+            value={form.guests}
+            onChange={(v) => setForm({ ...form, guests: v })}
+            options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `${n} ${n === 1 ? 'guest' : 'guests'}` }))}
+          />
         </div>
         <div className="bookbar__field">
-          <label htmlFor="bb-type">Suite</label>
-          <select id="bb-type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-            <option value="">Any suite</option>
-            {roomTypes.map((t) => <option key={t.id} value={t.id}>{t.name} {t.tier}</option>)}
-          </select>
+          <label>Suite</label>
+          <Select
+            variant="bare"
+            label="Suite"
+            value={form.type}
+            onChange={(v) => setForm({ ...form, type: v })}
+            options={[{ value: '', label: 'Any suite' }, ...uniqueRooms.map((t) => ({ value: t._id || t.id, label: `${t.roomType} (Floor ${t.floor})` }))]}
+          />
         </div>
+        {err && <p className="bookbar__err">{err}</p>}
         <button className="btn bookbar__btn" type="submit">
           <Icon name="search" size={16} /> Check Availability
         </button>
@@ -58,10 +94,37 @@ function BookingBar() {
 }
 
 export default function Home() {
+  const { rooms } = useData();
   const bandRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: bandRef, offset: ['start end', 'end start'] });
   const bandY = useTransform(scrollYProgress, [0, 1], ['-12%', '12%']);
-  const featured = roomTypes.filter((t) => t.featured).slice(0, 4);
+  
+  const uniqueRooms = useMemo(() => {
+    const map = new Map();
+    for (const r of rooms) if (!map.has(r.roomType)) map.set(r.roomType, r);
+    return Array.from(map.values());
+  }, [rooms]);
+
+  const featured = useMemo(() => {
+    const list = [];
+    const seenType = new Set();
+    const seenId = new Set();
+    for (const r of rooms) {
+      if (list.length >= 8) break;
+      if (seenType.has(r.roomType)) continue;
+      seenType.add(r.roomType);
+      seenId.add(r._id || r.id);
+      list.push(r);
+    }
+    for (const r of rooms) {
+      if (list.length >= 8) break;
+      const id = r._id || r.id;
+      if (seenId.has(id)) continue;
+      seenId.add(id);
+      list.push(r);
+    }
+    return list;
+  }, [rooms]);
 
   return (
     <div className="home">
@@ -115,7 +178,7 @@ export default function Home() {
         </div>
       </section>
 
-      <BookingBar />
+      <BookingBar uniqueRooms={uniqueRooms} />
 
       {/* ---------------------------- Welcome ----------------------------- */}
       <section className="section welcome">
@@ -179,7 +242,7 @@ export default function Home() {
 
           <div className="collection__grid">
             {featured.map((room, i) => (
-              <Reveal key={room.id} delay={(i % 4) * 0.08}>
+              <Reveal key={room._id || room.id} delay={(i % 4) * 0.08}>
                 <RoomCard room={room} />
               </Reveal>
             ))}

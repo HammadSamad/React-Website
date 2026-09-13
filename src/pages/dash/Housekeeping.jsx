@@ -4,57 +4,98 @@ import StatusBadge from '../../components/dash/StatusBadge.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import Icon from '../../components/common/Icon.jsx';
 import { useData } from '../../context/DataContext.jsx';
-import { staff } from '../../data/hotel.js';
-import './Housekeeping.css';
-
-const HK_COLUMNS = [
+import { housekeepingApi, maintenanceApi } from '../../lib/api.js';
+const HK_STATUSES = [
   { key: 'pending', label: 'Pending' },
   { key: 'in-progress', label: 'In progress' },
-  { key: 'done', label: 'Done' },
+  { key: 'completed', label: 'Completed' },
 ];
-const staffMap = Object.fromEntries(staff.map((s) => [s.id, s.name]));
-const assignable = staff.filter((s) => s.role === 'maintenance' || s.role === 'housekeeping');
-const BLANK = { roomNo: '', issue: '', reportedBy: 'Reception', priority: 'normal', assignee: '' };
-const TASK_BLANK = { roomNo: '', task: '', priority: 'normal', assignee: '', note: '' };
+const MAINT_STATUSES = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'in-progress', label: 'In progress' },
+  { key: 'completed', label: 'Completed' },
+];
+const BLANK_MAINT = { roomId: '', issueTitle: '', issueDescription: '', priority: 'medium', staffId: '' };
+const BLANK_TASK = { roomId: '', taskType: 'cleaning', notes: '', staffId: '' };
 
 function Prio({ level }) {
   return <span className={`prio prio--${level}`}>{level}</span>;
 }
 
 export default function Housekeeping() {
-  const { housekeeping, maintenance, setTaskStatus, updateTask, addTask, setMaintenanceStatus, addMaintenance } = useData();
+  const { housekeeping, setHousekeeping, maintenance, setMaintenance, rooms, staff, notify, refreshAll } = useData();
   const [view, setView] = useState('tasks');
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState(BLANK);
+  const [form, setForm] = useState(BLANK_MAINT);
   const [addingTask, setAddingTask] = useState(false);
-  const [taskForm, setTaskForm] = useState(TASK_BLANK);
+  const [taskForm, setTaskForm] = useState(BLANK_TASK);
+  const [floor, setFloor] = useState('all');
+
+  const roomMap = useMemo(() => Object.fromEntries(rooms.map((r) => [r._id || r.id, r.roomNumber])), [rooms]);
+  const floorMap = useMemo(() => Object.fromEntries(rooms.map((r) => [r._id || r.id, r.floor])), [rooms]);
+  const staffMap = useMemo(() => Object.fromEntries(staff.map((s) => [s._id || s.id, s.staffName || s.name])), [staff]);
+  const assignable = useMemo(() => staff.filter((s) => (s.staffRole === 'maintenance' || s.staffRole === 'housekeeping') && s.staffStatus !== 'inactive'), [staff]);
+  const floors = useMemo(() => [...new Set(rooms.map((r) => r.floor).filter((f) => typeof f === 'number'))].sort((a, b) => a - b), [rooms]);
+  const taskFloor = (t) => t.roomId?.floor ?? floorMap[t.roomId];
+
+  const boardTasks = useMemo(() => housekeeping.filter((t) => floor === 'all' || taskFloor(t) === floor), [housekeeping, floor, floorMap]);
 
   const grouped = useMemo(() => {
-    const g = { pending: [], 'in-progress': [], done: [] };
-    for (const t of housekeeping) (g[t.status] ||= []).push(t);
+    const g = { pending: [], 'in-progress': [], completed: [] };
+    for (const t of boardTasks) (g[t.taskStatus] ||= []).push(t);
     return g;
-  }, [housekeeping]);
+  }, [boardTasks]);
 
-  const canAdd = form.roomNo.trim() && form.issue.trim();
-  const submit = () => {
-    if (!canAdd) return;
-    addMaintenance({ ...form, assignee: form.assignee || null });
-    setForm(BLANK);
-    setAdding(false);
+  const groupedMaint = useMemo(() => {
+    const g = { pending: [], 'in-progress': [], completed: [] };
+    for (const m of maintenance) (g[m.maintenanceStatus] ||= []).push(m);
+    return g;
+  }, [maintenance]);
+
+  const canAddMaint = form.roomId && form.issueTitle.trim();
+  const submitMaint = async () => {
+    if (!canAddMaint) return;
+    try {
+      const payload = {
+        roomId: form.roomId,
+        issueTitle: form.issueTitle.trim(),
+        issueDescription: form.issueDescription.trim(),
+        priority: form.priority,
+        staffId: form.staffId || null,
+      };
+      await maintenanceApi.create(payload);
+      setForm(BLANK_MAINT);
+      setAdding(false);
+      refreshAll();
+      notify('Maintenance request logged');
+    } catch (e) {
+      notify(e.message, 'error');
+    }
   };
 
-  const canAddTask = taskForm.roomNo.trim() && taskForm.task.trim();
-  const submitTask = () => {
+  const canAddTask = taskForm.roomId && taskForm.taskType;
+  const submitTask = async () => {
     if (!canAddTask) return;
-    addTask({
-      roomNo: taskForm.roomNo.trim(),
-      task: taskForm.task.trim(),
-      priority: taskForm.priority,
-      assignee: taskForm.assignee || null,
-      note: taskForm.note.trim(),
-    });
-    setTaskForm(TASK_BLANK);
-    setAddingTask(false);
+    try {
+      const payload = {
+        roomId: taskForm.roomId,
+        taskType: taskForm.taskType,
+        taskDate: new Date().toISOString(),
+        notes: taskForm.notes.trim(),
+        staffId: taskForm.staffId || null,
+      };
+      await housekeepingApi.create(payload);
+      setTaskForm(BLANK_TASK);
+      setAddingTask(false);
+      refreshAll();
+      notify('Housekeeping task created');
+    } catch (e) {
+      notify(e.message, 'error');
+    }
+  };
+
+  const updateMaintStatus = (id, status) => {
+    maintenanceApi.update(id, { maintenanceStatus: status }).then(() => refreshAll()).catch(() => {});
   };
 
   return (
@@ -70,11 +111,19 @@ export default function Housekeeping() {
           <button className={`seg__btn ${view === 'tasks' ? 'is-active' : ''}`} onClick={() => setView('tasks')}>Tasks<span className="seg__count">{housekeeping.length}</span></button>
           <button className={`seg__btn ${view === 'maint' ? 'is-active' : ''}`} onClick={() => setView('maint')}>Maintenance<span className="seg__count">{maintenance.length}</span></button>
         </div>
+        {view === 'tasks' && (
+          <div className="seg seg--floors">
+            <button className={`seg__btn ${floor === 'all' ? 'is-active' : ''}`} onClick={() => setFloor('all')}>All floors</button>
+            {floors.map((f) => (
+              <button key={f} className={`seg__btn ${floor === f ? 'is-active' : ''}`} onClick={() => setFloor(f)}>Floor {f}</button>
+            ))}
+          </div>
+        )}
       </div>
 
       {view === 'tasks' && (
         <div className="hk-board">
-          {HK_COLUMNS.map((col) => (
+          {HK_STATUSES.map((col) => (
             <div className="hk-col" key={col.key}>
               <div className="hk-col__head">
                 <span className={`hk-col__dot hk-col__dot--${col.key}`} />
@@ -83,25 +132,25 @@ export default function Housekeeping() {
               </div>
               <div className="hk-col__body">
                 {(grouped[col.key] || []).map((t) => (
-                  <article className="hk-card" key={t.id}>
+                  <article className="hk-card" key={t._id || t.id}>
                     <div className="hk-card__top">
-                      <span className="hk-card__room"><Icon name="door" size={14} /> {t.roomNo}</span>
-                      <Prio level={t.priority} />
+                      <span className="hk-card__room"><Icon name="door" size={14} /> {t.roomId?.roomNumber || roomMap[t.roomId] || '—'}</span>
+                      <span className="hk-card__floor"><Icon name="building" size={12} /> Floor {taskFloor(t) ?? '—'}</span>
                     </div>
-                    <div className="hk-card__task">{t.task}</div>
-                    {t.note && <div className="hk-card__note">{t.note}</div>}
+                    <div className="hk-card__task">{t.taskType}</div>
+                    {t.notes && <div className="hk-card__note">{t.notes}</div>}
                     <div className="hk-card__foot">
-                      <select className="select select--dark hk-assign" value={t.assignee || ''} onChange={(e) => updateTask(t.id, { assignee: e.target.value || null })} aria-label="Assign task">
+                      <select className="select select--dark hk-assign" value={t.staffId?._id || t.staffId || ''} onChange={(e) => { const tid = t._id || t.id; housekeepingApi.update(tid, { staffId: e.target.value || null }).then(() => refreshAll()).catch(() => {}); }} aria-label="Assign task">
                         <option value="">Unassigned</option>
-                        {assignable.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        {assignable.map((s) => <option key={s._id || s.id} value={s._id || s.id}>{s.staffName || s.name}</option>)}
                       </select>
                       <div className="hk-card__actions">
-                        {t.status === 'pending' && <button className="btn btn--sm" onClick={() => setTaskStatus(t.id, 'in-progress')}>Start</button>}
-                        {t.status === 'in-progress' && <>
-                          <button className="btn btn--sm btn--ghost" onClick={() => setTaskStatus(t.id, 'pending')}>Hold</button>
-                          <button className="btn btn--sm" onClick={() => setTaskStatus(t.id, 'done')}>Complete</button>
+                        {t.taskStatus === 'pending' && <button className="btn btn--sm" onClick={() => { const tid = t._id || t.id; housekeepingApi.updateStatus(tid, 'in-progress').then(() => refreshAll()).catch(() => {}); }}>Start</button>}
+                        {t.taskStatus === 'in-progress' && <>
+                          <button className="btn btn--sm btn--ghost" onClick={() => { const tid = t._id || t.id; housekeepingApi.updateStatus(tid, 'pending').then(() => refreshAll()).catch(() => {}); }}>Hold</button>
+                          <button className="btn btn--sm" onClick={() => { const tid = t._id || t.id; housekeepingApi.updateStatus(tid, 'completed').then(() => refreshAll()).catch(() => {}); }}>Complete</button>
                         </>}
-                        {t.status === 'done' && <button className="btn btn--sm btn--ghost" onClick={() => setTaskStatus(t.id, 'pending')}>Reopen</button>}
+                        {t.taskStatus === 'completed' && <button className="btn btn--sm btn--ghost" onClick={() => { const tid = t._id || t.id; housekeepingApi.updateStatus(tid, 'pending').then(() => refreshAll()).catch(() => {}); }}>Reopen</button>}
                       </div>
                     </div>
                   </article>
@@ -118,22 +167,21 @@ export default function Housekeeping() {
           <div className="dash-table-wrap">
             <table className="dash-table">
               <thead>
-                <tr><th>Room</th><th>Issue</th><th>Reported by</th><th>Priority</th><th>Assignee</th><th>Status</th><th></th></tr>
+                <tr><th>Room</th><th>Issue</th><th>Priority</th><th>Assignee</th><th>Status</th><th></th></tr>
               </thead>
               <tbody>
                 {maintenance.map((m) => (
-                  <tr key={m.id}>
-                    <td className="td-strong">{m.roomNo}</td>
-                    <td>{m.issue}</td>
-                    <td className="td-mut">{m.reportedBy}</td>
+                  <tr key={m._id || m.id}>
+                    <td className="td-strong">{m.roomId?.roomNumber || roomMap[m.roomId] || '—'}</td>
+                    <td>{m.issueTitle}</td>
                     <td><Prio level={m.priority} /></td>
-                    <td className="td-mut">{staffMap[m.assignee] || '—'}</td>
-                    <td><StatusBadge status={m.status} /></td>
+                    <td className="td-mut">{m.staffId?.staffName || staffMap[m.staffId] || '—'}</td>
+                    <td><StatusBadge status={m.maintenanceStatus} /></td>
                     <td>
                       <div className="row-actions">
-                        {m.status === 'open' && <button className="btn btn--sm" onClick={() => setMaintenanceStatus(m.id, 'in-progress')}>Start</button>}
-                        {m.status === 'in-progress' && <button className="btn btn--sm" onClick={() => setMaintenanceStatus(m.id, 'resolved')}>Resolve</button>}
-                        {m.status === 'resolved' && <button className="btn btn--sm btn--ghost" onClick={() => setMaintenanceStatus(m.id, 'open')}>Reopen</button>}
+                        {m.maintenanceStatus === 'pending' && <button className="btn btn--sm" onClick={() => updateMaintStatus(m._id || m.id, 'in-progress')}>Start</button>}
+                        {m.maintenanceStatus === 'in-progress' && <button className="btn btn--sm" onClick={() => updateMaintStatus(m._id || m.id, 'completed')}>Resolve</button>}
+                        {m.maintenanceStatus === 'completed' && <button className="btn btn--sm btn--ghost" onClick={() => updateMaintStatus(m._id || m.id, 'pending')}>Reopen</button>}
                       </div>
                     </td>
                   </tr>
@@ -147,65 +195,65 @@ export default function Housekeeping() {
 
       <Modal
         open={adding}
-        onClose={() => setAdding(false)}
+        onClose={() => { setAdding(false); setForm(BLANK_MAINT); }}
         title="Log maintenance request"
         subtitle="Raise an issue for the facilities team."
         footer={<>
-          <button className="btn btn--outline" onClick={() => setAdding(false)}>Cancel</button>
-          <button className="btn" onClick={submit} disabled={!canAdd}>Log request</button>
+          <button className="btn btn--outline" onClick={() => { setAdding(false); setForm(BLANK_MAINT); }}>Cancel</button>
+          <button className="btn" onClick={submitMaint} disabled={!canAddMaint}>Log request</button>
         </>}
       >
         <div className="form-grid">
-          <label className="field"><span className="field-label">Room</span>
-            <input className="input" value={form.roomNo} onChange={(e) => setForm((f) => ({ ...f, roomNo: e.target.value }))} placeholder="e.g. 305" /></label>
+          <label className="field"><span className="field-label">Room *</span>
+            <select className="select" value={form.roomId} onChange={(e) => setForm((f) => ({ ...f, roomId: e.target.value }))}>
+              <option value="" disabled>Select room…</option>
+              {rooms.map((r) => <option key={r._id || r.id} value={r._id || r.id}>Room {r.roomNumber}</option>)}
+            </select></label>
           <label className="field"><span className="field-label">Priority</span>
             <select className="select" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}>
-              <option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option>
+              <option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
             </select></label>
         </div>
-        <label className="field" style={{ marginTop: '1rem' }}><span className="field-label">Issue</span>
-          <textarea className="textarea" rows={3} value={form.issue} onChange={(e) => setForm((f) => ({ ...f, issue: e.target.value }))} placeholder="Describe the problem…" /></label>
-        <div className="form-grid" style={{ marginTop: '1rem' }}>
-          <label className="field"><span className="field-label">Reported by</span>
-            <select className="select" value={form.reportedBy} onChange={(e) => setForm((f) => ({ ...f, reportedBy: e.target.value }))}>
-              <option>Reception</option><option>Housekeeping</option><option>Guest</option><option>Maintenance</option>
-            </select></label>
-          <label className="field"><span className="field-label">Assign to</span>
-            <select className="select" value={form.assignee} onChange={(e) => setForm((f) => ({ ...f, assignee: e.target.value }))}>
-              <option value="">Unassigned</option>
-              {assignable.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.title}</option>)}
-            </select></label>
-        </div>
+        <label className="field" style={{ marginTop: '1rem' }}><span className="field-label">Issue title *</span>
+          <input className="input" value={form.issueTitle} onChange={(e) => setForm((f) => ({ ...f, issueTitle: e.target.value }))} placeholder="e.g. Thermostat unresponsive" /></label>
+        <label className="field" style={{ marginTop: '1rem' }}><span className="field-label">Description</span>
+          <textarea className="textarea" rows={3} value={form.issueDescription} onChange={(e) => setForm((f) => ({ ...f, issueDescription: e.target.value }))} placeholder="Describe the problem…" /></label>
+        <label className="field" style={{ marginTop: '1rem' }}><span className="field-label">Assign to</span>
+          <select className="select" value={form.staffId} onChange={(e) => setForm((f) => ({ ...f, staffId: e.target.value }))}>
+            <option value="">Unassigned</option>
+            {assignable.filter(s => s.staffRole === 'maintenance').map((s) => <option key={s._id || s.id} value={s._id || s.id}>{s.staffName || s.name}</option>)}
+          </select></label>
       </Modal>
 
       <Modal
         open={addingTask}
-        onClose={() => setAddingTask(false)}
+        onClose={() => { setAddingTask(false); setTaskForm(BLANK_TASK); }}
         title="New housekeeping task"
         subtitle="Assign a cleaning or turndown task to the team."
         footer={<>
-          <button className="btn btn--outline" onClick={() => setAddingTask(false)}>Cancel</button>
+          <button className="btn btn--outline" onClick={() => { setAddingTask(false); setTaskForm(BLANK_TASK); }}>Cancel</button>
           <button className="btn" onClick={submitTask} disabled={!canAddTask}>Create task</button>
         </>}
       >
         <div className="form-grid">
-          <label className="field"><span className="field-label">Room</span>
-            <input className="input" value={taskForm.roomNo} onChange={(e) => setTaskForm((f) => ({ ...f, roomNo: e.target.value }))} placeholder="e.g. 204" /></label>
-          <label className="field"><span className="field-label">Priority</span>
-            <select className="select" value={taskForm.priority} onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value }))}>
-              <option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option>
+          <label className="field"><span className="field-label">Room *</span>
+            <select className="select" value={taskForm.roomId} onChange={(e) => setTaskForm((f) => ({ ...f, roomId: e.target.value }))}>
+              <option value="" disabled>Select room…</option>
+              {rooms.map((r) => <option key={r._id || r.id} value={r._id || r.id}>Room {r.roomNumber}</option>)}
+            </select></label>
+          <label className="field"><span className="field-label">Task type *</span>
+            <select className="select" value={taskForm.taskType} onChange={(e) => setTaskForm((f) => ({ ...f, taskType: e.target.value }))}>
+              <option value="cleaning">Cleaning</option><option value="deep-cleaning">Deep Cleaning</option><option value="inspection">Inspection</option>
             </select></label>
         </div>
-        <label className="field" style={{ marginTop: '1rem' }}><span className="field-label">Task</span>
-          <input className="input" value={taskForm.task} onChange={(e) => setTaskForm((f) => ({ ...f, task: e.target.value }))} placeholder="e.g. Full clean & turndown" /></label>
         <div className="form-grid" style={{ marginTop: '1rem' }}>
           <label className="field"><span className="field-label">Assign to</span>
-            <select className="select" value={taskForm.assignee} onChange={(e) => setTaskForm((f) => ({ ...f, assignee: e.target.value }))}>
+            <select className="select" value={taskForm.staffId} onChange={(e) => setTaskForm((f) => ({ ...f, staffId: e.target.value }))}>
               <option value="">Unassigned</option>
-              {assignable.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.title}</option>)}
+              {assignable.filter(s => s.staffRole === 'housekeeping').map((s) => <option key={s._id || s.id} value={s._id || s.id}>{s.staffName || s.name}</option>)}
             </select></label>
-          <label className="field"><span className="field-label">Note <span className="field-optional">optional</span></span>
-            <input className="input" value={taskForm.note} onChange={(e) => setTaskForm((f) => ({ ...f, note: e.target.value }))} placeholder="Any specifics…" /></label>
+          <label className="field"><span className="field-label">Notes <span className="field-optional">optional</span></span>
+            <input className="input" value={taskForm.notes} onChange={(e) => setTaskForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Any specifics…" /></label>
         </div>
       </Modal>
     </>

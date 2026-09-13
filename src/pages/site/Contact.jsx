@@ -2,10 +2,9 @@ import { useState } from 'react';
 import PageHero from '../../components/site/PageHero.jsx';
 import Reveal from '../../components/common/Reveal.jsx';
 import Icon from '../../components/common/Icon.jsx';
+import Select from '../../components/common/Select.jsx';
 import { useData } from '../../context/DataContext.jsx';
 import { hotelInfo } from '../../data/hotel.js';
-import './Contact.css';
-
 const details = (info) => [
   { icon: 'mapPin', label: 'Visit', lines: [info.address, `${info.city}`] },
   { icon: 'phone', label: 'Call', lines: [info.phone, 'Concierge · 24 hours'] },
@@ -58,13 +57,12 @@ export default function Contact() {
               </div>
               <label className="field">
                 <span className="field-label">Subject</span>
-                <select className="select" value={form.subject} onChange={set('subject')}>
-                  <option>Reservation enquiry</option>
-                  <option>Private event or wedding</option>
-                  <option>Dining reservation</option>
-                  <option>Press &amp; partnerships</option>
-                  <option>Something else</option>
-                </select>
+                <Select
+                  label="Subject"
+                  value={form.subject}
+                  onChange={set('subject')}
+                  options={['Reservation enquiry', 'Private event or wedding', 'Dining reservation', 'Press & partnerships', 'Something else']}
+                />
               </label>
               <label className="field">
                 <span className="field-label">Message</span>

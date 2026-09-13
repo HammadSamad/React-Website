@@ -5,7 +5,18 @@
    ===================================================================== */
 import { img } from '../lib/images.js';
 
-export const TODAY = '2026-08-25';
+const toISODATE = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+export const TODAY = toISODATE(new Date());
+
+/* Live "today" — recomputes from the current time so arrival-date
+   minimums always reflect the actual date, even across midnight. */
+export const todayISO = () => toISODATE(new Date());
 
 export const hotelInfo = {
   name: 'LuxuryStay',
@@ -20,132 +31,6 @@ export const hotelInfo = {
   properties: 14,
   awards: 38,
 };
-
-/* ------------------------- Room categories -------------------------- */
-export const roomTypes = [
-  {
-    id: 'garden-deluxe',
-    index: '01',
-    name: 'Garden Deluxe',
-    tier: 'Room',
-    tagline: 'A quiet green outlook, moments from everything.',
-    price: 320,
-    size: 42,
-    maxGuests: 2,
-    bed: 'King',
-    view: 'Botanical garden',
-    hero: img.room1,
-    gallery: [img.room1, img.roomA, img.bath, img.garden],
-    short:
-      'Our signature entry room — warm oak, linen, and a window framed by the hotel gardens.',
-    description:
-      'The Garden Deluxe sets the tone for a LuxuryStay: hand-finished oak, deep linen upholstery, and a picture window that opens onto the conservatory gardens. A restful base for the discerning traveller who wants calm without compromise.',
-    amenities: ['Botanical garden view', 'Rainfall shower', 'Nespresso & tea ritual', 'Egyptian cotton linens', '55" 4K theatre', 'Smart climate control'],
-    featured: false,
-  },
-  {
-    id: 'palm-court',
-    index: '02',
-    name: 'Palm Court',
-    tier: 'Suite',
-    tagline: 'A living room among the palms.',
-    price: 520,
-    size: 65,
-    maxGuests: 3,
-    bed: 'King + daybed',
-    view: 'Palm court atrium',
-    hero: img.room2,
-    gallery: [img.room2, img.roomB, img.lounge, img.bath],
-    short:
-      'A generous suite with a separate sitting room overlooking the palm court atrium.',
-    description:
-      'Step into a suite that breathes. The Palm Court pairs a serene bedroom with a distinct sitting room, wrapped around the hotel’s glass palm atrium. Afternoon light, a marble bar, and space to truly settle in.',
-    amenities: ['Separate sitting room', 'Palm atrium view', 'Marble wet bar', 'Soaking tub', 'Nespresso & tea ritual', 'Evening turndown'],
-    featured: true,
-  },
-  {
-    id: 'conservatory-junior',
-    index: '03',
-    name: 'Conservatory',
-    tier: 'Junior Suite',
-    tagline: 'Glass, greenery, and golden hour.',
-    price: 690,
-    size: 78,
-    maxGuests: 3,
-    bed: 'King',
-    view: 'Conservatory & skyline',
-    hero: img.room3,
-    gallery: [img.room3, img.roomC, img.suiteView, img.bath],
-    short:
-      'Floor-to-ceiling glass, a curated library nook, and skyline beyond the ferns.',
-    description:
-      'The Conservatory Junior Suite is our love letter to light. Floor-to-ceiling glazing draws the gardens indoors, while a reading nook and writing desk make it as suited to a long stay as a short escape.',
-    amenities: ['Floor-to-ceiling glass', 'Reading library', 'Skyline view', 'Freestanding tub', 'Butler on request', 'Pillow menu'],
-    featured: true,
-  },
-  {
-    id: 'heritage-executive',
-    index: '04',
-    name: 'Heritage',
-    tier: 'Executive Suite',
-    tagline: 'Where the house keeps its finest stories.',
-    price: 940,
-    size: 96,
-    maxGuests: 4,
-    bed: 'King + twin',
-    view: 'Heritage facade & harbour',
-    hero: img.room4,
-    gallery: [img.room4, img.roomD, img.lobby, img.bath],
-    short:
-      'A two-room residence with dining for six and views across the harbour.',
-    description:
-      'Occupying the restored heritage wing, this residence offers a formal dining room, a study, and a primary suite dressed in brass and bottle-green marble. History, brought comfortably into the present.',
-    amenities: ['Formal dining for six', 'Private study', 'Harbour view', 'Dual dressing rooms', 'Dedicated butler', 'Private check-in'],
-    featured: true,
-  },
-  {
-    id: 'botanical-penthouse',
-    index: '05',
-    name: 'Botanical',
-    tier: 'Penthouse',
-    tagline: 'The whole sky, and a garden in it.',
-    price: 1850,
-    size: 180,
-    maxGuests: 4,
-    bed: 'Two bedrooms',
-    view: 'Private terrace & skyline',
-    hero: img.room5,
-    gallery: [img.room5, img.suiteView, img.lounge, img.pool2],
-    short:
-      'Our crowning residence — a wraparound terrace garden above the city.',
-    description:
-      'The Botanical Penthouse is a private world: two bedrooms, a grand salon, a chef’s kitchen, and a wraparound terrace planted as a sky garden. Reserved for those for whom the ordinary will not do.',
-    amenities: ['Wraparound sky terrace', 'Private plunge pool', 'Chef’s kitchen', 'Grand salon', '24h butler & chauffeur', 'Private lift lobby'],
-    featured: true,
-  },
-  {
-    id: 'poolside-cabana',
-    index: '06',
-    name: 'Poolside',
-    tier: 'Cabana',
-    tagline: 'Step from your door into the water.',
-    price: 610,
-    size: 58,
-    maxGuests: 2,
-    bed: 'King',
-    view: 'Direct pool access',
-    hero: img.room6,
-    gallery: [img.room6, img.pool1, img.pool2, img.bath],
-    short:
-      'A ground-level retreat with a private terrace onto the lagoon pool.',
-    description:
-      'The Poolside Cabana blurs the line between room and resort. A private terrace opens straight onto the lagoon pool, with an outdoor rain shower and a daybed built for long, unhurried afternoons.',
-    amenities: ['Direct pool access', 'Outdoor rain shower', 'Private terrace daybed', 'Chilled minibar', 'Sun-lounge service', 'Late checkout'],
-    featured: false,
-  },
-];
-
-export const roomTypeById = Object.fromEntries(roomTypes.map((t) => [t.id, t]));
 
 /* --------------------------- Experiences ---------------------------- */
 export const experiences = [
@@ -203,60 +88,51 @@ export const roleLabels = {
   guest: 'Guest',
 };
 
-/* ------------------------- Room inventory --------------------------- */
-const STATUSES = ['available', 'occupied', 'cleaning', 'maintenance', 'reserved'];
-function buildRooms() {
-  const rooms = [];
-  const layout = [
-    { floor: 2, type: 'garden-deluxe', count: 8 },
-    { floor: 3, type: 'palm-court', count: 6 },
-    { floor: 4, type: 'conservatory-junior', count: 6 },
-    { floor: 5, type: 'heritage-executive', count: 4 },
-    { floor: 1, type: 'poolside-cabana', count: 6 },
-    { floor: 6, type: 'botanical-penthouse', count: 2 },
-  ];
-  // deterministic pseudo-status pattern for a realistic board
-  const pattern = [0, 1, 2, 1, 0, 4, 1, 3, 0, 1, 2, 0, 1, 4, 0, 1, 3, 2, 0, 1, 1, 0, 4, 2, 0, 1, 0, 3, 1, 0, 2, 1];
-  let p = 0;
-  for (const grp of layout) {
-    const t = roomTypeById[grp.type];
-    for (let i = 1; i <= grp.count; i++) {
-      const no = `${grp.floor}${String(i).padStart(2, '0')}`;
-      const status = STATUSES[pattern[p % pattern.length]];
-      p++;
-      rooms.push({
-        no,
-        floor: grp.floor,
-        typeId: grp.type,
-        typeName: `${t.name} ${t.tier}`,
-        price: t.price,
-        maxGuests: t.maxGuests,
-        status,
-        housekeeping: status === 'cleaning' ? 'in-progress' : 'clean',
-      });
-    }
-  }
-  return rooms;
-}
-export const rooms = buildRooms();
+export const ROLES = ['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance', 'guest'];
 
-/* ---------------------------- Reservations -------------------------- */
-export const reservations = [
-  { id: 'r-9001', code: 'LS-8842', guestId: 'g-1042', typeId: 'botanical-penthouse', roomNo: '601', checkIn: '2026-08-24', checkOut: '2026-08-28', guests: 2, status: 'checked-in', source: 'online', paid: true, amount: 7400 },
-  { id: 'r-9002', code: 'LS-8843', guestId: 'g-1044', typeId: 'conservatory-junior', roomNo: '401', checkIn: '2026-08-25', checkOut: '2026-08-29', guests: 2, status: 'checked-in', source: 'staff', paid: true, amount: 2760 },
-  { id: 'r-9003', code: 'LS-8844', guestId: 'g-1046', typeId: 'palm-court', roomNo: '301', checkIn: '2026-08-25', checkOut: '2026-08-27', guests: 3, status: 'arriving', source: 'online', paid: false, amount: 1040 },
-  { id: 'r-9004', code: 'LS-8845', guestId: 'g-1048', typeId: 'heritage-executive', roomNo: '501', checkIn: '2026-08-26', checkOut: '2026-09-01', guests: 4, status: 'confirmed', source: 'staff', paid: true, amount: 5640 },
-  { id: 'r-9005', code: 'LS-8846', guestId: 'g-1050', typeId: 'garden-deluxe', roomNo: '204', checkIn: '2026-08-25', checkOut: '2026-08-26', guests: 1, status: 'arriving', source: 'online', paid: true, amount: 320 },
-  { id: 'r-9006', code: 'LS-8847', guestId: 'g-1043', typeId: 'poolside-cabana', roomNo: '102', checkIn: '2026-08-22', checkOut: '2026-08-25', guests: 2, status: 'departing', source: 'online', paid: true, amount: 1830 },
-  { id: 'r-9007', code: 'LS-8848', guestId: 'g-1053', typeId: 'conservatory-junior', roomNo: '403', checkIn: '2026-08-27', checkOut: '2026-08-31', guests: 2, status: 'confirmed', source: 'online', paid: false, amount: 2760 },
-  { id: 'r-9008', code: 'LS-8849', guestId: 'g-1045', typeId: 'garden-deluxe', roomNo: '206', checkIn: '2026-08-20', checkOut: '2026-08-24', guests: 2, status: 'checked-out', source: 'staff', paid: true, amount: 1280 },
-  { id: 'r-9009', code: 'LS-8850', guestId: 'g-1049', typeId: 'palm-court', roomNo: '303', checkIn: '2026-08-28', checkOut: '2026-08-30', guests: 2, status: 'confirmed', source: 'online', paid: true, amount: 1040 },
-  { id: 'r-9010', code: 'LS-8851', guestId: 'g-1052', typeId: 'poolside-cabana', roomNo: '104', checkIn: '2026-08-25', checkOut: '2026-08-28', guests: 2, status: 'arriving', source: 'online', paid: false, amount: 1830 },
-  { id: 'r-9011', code: 'LS-8852', guestId: 'g-1047', typeId: 'garden-deluxe', roomNo: '203', checkIn: '2026-08-29', checkOut: '2026-09-02', guests: 1, status: 'confirmed', source: 'staff', paid: false, amount: 1280 },
-  { id: 'r-9012', code: 'LS-8853', guestId: 'g-1051', typeId: 'palm-court', roomNo: '305', checkIn: '2026-08-23', checkOut: '2026-08-25', guests: 2, status: 'departing', source: 'online', paid: true, amount: 1040 },
-  { id: 'r-9013', code: 'LS-8854', guestId: 'g-1050', typeId: 'heritage-executive', roomNo: '502', checkIn: '2026-09-03', checkOut: '2026-09-07', guests: 3, status: 'confirmed', source: 'online', paid: true, amount: 3760 },
-  { id: 'r-9014', code: 'LS-8855', guestId: 'g-1042', typeId: 'conservatory-junior', roomNo: '405', checkIn: '2026-08-18', checkOut: '2026-08-22', guests: 2, status: 'checked-out', source: 'online', paid: true, amount: 2760 },
+export const MODULES = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'reservations', label: 'Reservations' },
+  { key: 'checkinout', label: 'Check-in / out' },
+  { key: 'rooms', label: 'Rooms' },
+  { key: 'guests', label: 'Guests' },
+  { key: 'housekeeping', label: 'Housekeeping' },
+  { key: 'services', label: 'Services' },
+  { key: 'billing', label: 'Billing' },
+  { key: 'payments', label: 'Payments' },
+  { key: 'feedback', label: 'Feedback' },
+  { key: 'reports', label: 'Reports' },
+  { key: 'staff', label: 'Staff' },
+  { key: 'notifications', label: 'Notifications' },
+  { key: 'settings', label: 'System' },
+  { key: 'roles', label: 'Roles & permissions' },
 ];
+
+export const DEFAULT_ROLE_POLICIES = {
+  admin: { overview: true, reservations: true, checkinout: true, rooms: true, guests: true, housekeeping: true, services: true, billing: true, payments: true, feedback: true, reports: true, staff: true, notifications: true, settings: true, roles: true },
+  manager: { overview: true, reservations: true, checkinout: true, rooms: true, guests: true, housekeeping: true, services: true, billing: true, payments: true, feedback: true, reports: true, staff: true, notifications: true, settings: false, roles: false },
+  receptionist: { overview: true, reservations: true, checkinout: true, rooms: true, guests: true, housekeeping: true, services: true, billing: true, payments: true, feedback: false, reports: false, staff: false, notifications: true, settings: false, roles: false },
+  housekeeping: { overview: true, reservations: false, checkinout: false, rooms: false, guests: false, housekeeping: true, services: true, billing: false, payments: false, feedback: false, reports: false, staff: false, notifications: true, settings: false, roles: false },
+  maintenance: { overview: true, reservations: false, checkinout: false, rooms: false, guests: false, housekeeping: true, services: false, billing: false, payments: false, feedback: false, reports: false, staff: false, notifications: true, settings: false, roles: false },
+  guest: { overview: false, reservations: false, checkinout: false, rooms: false, guests: false, housekeeping: false, services: false, billing: false, payments: false, feedback: false, reports: false, staff: false, notifications: false, settings: false, roles: false },
+};
+
+export const MODULE_BY_ROUTE = {
+  '/dashboard': 'overview',
+  '/dashboard/reservations': 'reservations',
+  '/dashboard/checkinout': 'checkinout',
+  '/dashboard/rooms': 'rooms',
+  '/dashboard/guests': 'guests',
+  '/dashboard/housekeeping': 'housekeeping',
+  '/dashboard/services': 'services',
+  '/dashboard/billing': 'billing',
+  '/dashboard/payments': 'payments',
+  '/dashboard/feedback': 'feedback',
+  '/dashboard/reports': 'reports',
+  '/dashboard/staff': 'staff',
+  '/dashboard/notifications': 'notifications',
+  '/dashboard/settings': 'settings',
+};
 
 /* ------------------------------ Invoices ---------------------------- */
 export const invoices = [
@@ -305,13 +181,20 @@ export const feedback = [
    form and the dashboard services board. */
 export const serviceTypes = [
   { id: 'room-service', label: 'Room Service', icon: 'coffee', hint: 'In-room dining, day or night' },
-  { id: 'wake-up', label: 'Wake-up Call', icon: 'clock', hint: 'A gentle call at your chosen hour' },
-  { id: 'transport', label: 'Transportation', icon: 'car', hint: 'Airport transfer or chauffeur' },
-  { id: 'dining', label: 'Dining Reservation', icon: 'dining', hint: 'A table at Fern & Brass' },
-  { id: 'spa', label: 'Spa Booking', icon: 'sparkles', hint: 'Treatments at the Conservatory Spa' },
-  { id: 'amenity', label: 'Amenity Request', icon: 'glass', hint: 'Extra pillows, champagne, and more' },
+  { id: 'wake-up-call', label: 'Wake-up Call', icon: 'clock', hint: 'A gentle call at your chosen hour' },
+  { id: 'transportation', label: 'Transportation', icon: 'car', hint: 'Airport transfer or chauffeur' },
+  { id: 'food', label: 'Dining Reservation', icon: 'dining', hint: 'A table at Fern & Brass' },
+  { id: 'laundry', label: 'Laundry Service', icon: 'sparkles', hint: 'Wash, dry-clean, and press' },
+  { id: 'other', label: 'Other Request', icon: 'glass', hint: 'Extra pillows, champagne, and more' },
 ];
 export const serviceTypeById = Object.fromEntries(serviceTypes.map((s) => [s.id, s]));
+
+export const paymentMethods = [
+  { id: 'cash', label: 'Cash', icon: 'banknote', hint: 'Pay at check-in or checkout in person' },
+  { id: 'card', label: 'Card', icon: 'creditCard', hint: 'Visa · Mastercard · American Express' },
+  { id: 'bank_transfer', label: 'Bank Transfer', icon: 'landmark', hint: 'Direct transfer to the hotel account' },
+];
+export const paymentMethodById = Object.fromEntries(paymentMethods.map((m) => [m.id, m]));
 
 export const services = [
   { id: 'sv-01', guestId: 'g-1042', type: 'room-service', room: '601', detail: 'Breakfast for two — Continental, 08:00', when: '08:00', status: 'scheduled', assignee: 's-03', date: '2026-08-25' },
@@ -346,7 +229,6 @@ export const analytics = {
     { label: 'Corporate', value: 16 },
     { label: 'Walk-in', value: 11 },
   ],
-  roomMix: roomTypes.map((t) => ({ label: t.name, value: rooms.filter((r) => r.typeId === t.id).length })),
   months: ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
   revenueByMonth: [980, 1040, 1120, 1180, 1225, 1284], // $k
 };

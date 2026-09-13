@@ -17,20 +17,27 @@ export default function SiteLayout() {
   // Immersive full-screen flows carry their own brand + back-to-site link,
   // so the fixed site chrome is hidden on them (it would otherwise blend
   // into their light backgrounds and sit unreadable over their headers).
-  const bare = ['/login', '/signup', '/booking'].includes(pathname);
+  const bare = ['/login', '/signup'].includes(pathname);
+  // The booking flow is a light checkout page — render it instantly (no
+  // opacity fade) so it doesn't blink on open, and keep a solid navbar on top.
+  const instant = pathname === '/booking';
   return (
     <>
       <ScrollToTop />
-      {!bare && <Navbar />}
+      {!bare && <Navbar solid={instant} />}
       <main>
-        <motion.div
-          key={pathname}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-        >
+        {instant ? (
           <Outlet />
-        </motion.div>
+        ) : (
+          <motion.div
+            key={pathname}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Outlet />
+          </motion.div>
+        )}
       </main>
       {!bare && <Footer />}
     </>

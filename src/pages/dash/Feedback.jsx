@@ -4,11 +4,13 @@ import Modal from '../../components/common/Modal.jsx';
 import Icon from '../../components/common/Icon.jsx';
 import Reveal from '../../components/common/Reveal.jsx';
 import { useData } from '../../context/DataContext.jsx';
-import { guestById } from '../../data/hotel.js';
-import './Feedback.css';
-
+import { feedbackApi } from '../../lib/api.js';
 const initials = (n = '') => n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+const fmtDate = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 function Stars({ rating, size = 14 }) {
   return (
@@ -21,35 +23,52 @@ function Stars({ rating, size = 14 }) {
 }
 
 export default function FeedbackPage() {
-  const { feedback, replyFeedback, toggleFeedbackResolved } = useData();
+  const { feedback, setFeedback, guests, notify, refreshAll } = useData();
   const [rating, setRating] = useState('all');
-  const [category, setCategory] = useState('all');
   const [replyingId, setReplyingId] = useState(null);
   const [replyText, setReplyText] = useState('');
 
-  const nameOf = (f) => f.name || guestById[f.guestId]?.name || 'Guest';
+  const guestMap = useMemo(() => Object.fromEntries(guests.map((g) => [g._id || g.id, g.guestName || g.name])), [guests]);
+  const nameOf = (f) => {
+    if (f.guestId?.guestName) return f.guestId.guestName;
+    if (f.guestId?.name) return f.guestId.name;
+    return guestMap[f.guestId] || 'Guest';
+  };
 
-  const avg = useMemo(() => (feedback.reduce((s, f) => s + f.rating, 0) / feedback.length || 0), [feedback]);
+  const avg = useMemo(() => (feedback.length ? feedback.reduce((s, f) => s + f.rating, 0) / feedback.length : 0), [feedback]);
   const dist = useMemo(() => {
     const d = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     for (const f of feedback) d[f.rating] = (d[f.rating] || 0) + 1;
     return d;
   }, [feedback]);
-  const categories = useMemo(() => ['all', ...Array.from(new Set(feedback.map((f) => f.category)))], [feedback]);
 
   const filtered = useMemo(() => feedback.filter((f) => {
-    if (category !== 'all' && f.category !== category) return false;
     if (rating === 'all') return true;
     if (rating === 'low') return f.rating <= 3;
     return f.rating === Number(rating);
-  }), [feedback, rating, category]);
+  }), [feedback, rating]);
 
-  const openReply = (f) => { setReplyText(f.reply || ''); setReplyingId(f.id); };
-  const activeReply = replyingId ? feedback.find((f) => f.id === replyingId) : null;
-  const sendReply = () => {
+  const openReply = (f) => { setReplyText(f.reply || ''); setReplyingId(f._id || f.id); };
+  const activeReply = replyingId ? feedback.find((f) => (f._id || f.id) === replyingId) : null;
+  const sendReply = async () => {
     if (!replyText.trim()) return;
-    replyFeedback(replyingId, replyText.trim());
-    setReplyingId(null);
+    try {
+      const replyDate = new Date().toISOString().split('T')[0];
+      await feedbackApi.update(replyingId, { reply: replyText.trim(), repliedAt: replyDate });
+      refreshAll();
+      setReplyingId(null);
+      notify('Reply sent');
+    } catch (e) {
+      notify(e.message, 'error');
+    }
+  };
+
+  const toggleResolved = (f) => {
+    const fid = f._id || f.id;
+    const newStatus = f.feedbackStatus === 'resolved' ? 'new' : 'resolved';
+    feedbackApi.update(fid, { feedbackStatus: newStatus }).then(() => {
+      refreshAll();
+    }).catch(() => {});
   };
 
   return (
@@ -89,44 +108,40 @@ export default function FeedbackPage() {
             </button>
           ))}
         </div>
-        <div className="fb-cats">
-          {categories.map((c) => (
-            <button key={c} className={`fb-cat ${category === c ? 'is-on' : ''}`} onClick={() => setCategory(c)}>
-              {c === 'all' ? 'All categories' : c}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="fb-grid">
-        {filtered.map((f) => (
-          <article className={`fb-card ${f.resolved ? 'is-resolved' : ''}`} key={f.id}>
-            <div className="fb-card__top">
-              <span className="cell-avatar">{initials(nameOf(f))}</span>
-              <div className="fb-card__id">
-                <div className="fb-card__name">{nameOf(f)}</div>
-                <div className="fb-card__meta">{f.room || 'Website'} · {fmt(f.date)}</div>
+        {filtered.map((f) => {
+          const isResolved = f.feedbackStatus === 'resolved';
+          return (
+            <article className={`fb-card ${isResolved ? 'is-resolved' : ''}`} key={f._id || f.id}>
+              <div className="fb-card__top">
+                <span className="cell-avatar">{initials(nameOf(f))}</span>
+                <div className="fb-card__id">
+                  <div className="fb-card__name">{nameOf(f)}</div>
+                  <div className="fb-card__meta">{f.room || 'Website'} · {fmtDate(f.feedbackDate)}</div>
+                </div>
+                {f.category && <span className="fb-card__cat">{f.category}</span>}
               </div>
-              <span className="fb-card__cat">{f.category}</span>
-            </div>
-            <Stars rating={f.rating} />
-            <p className="fb-card__comment">“{f.comment}”</p>
-            {f.reply && (
-              <div className="fb-card__reply">
-                <span className="fb-card__reply-label"><Icon name="reply" size={13} /> Response sent</span>
-                <p>{f.reply}</p>
+              <Stars rating={f.rating} />
+              <p className="fb-card__comment">"{f.feedbackMessage}"</p>
+              {f.reply && (
+                <div className="fb-card__reply">
+                  <span className="fb-card__reply-label"><Icon name="reply" size={13} /> Response sent</span>
+                  <p>{f.reply}</p>
+                </div>
+              )}
+              <div className="fb-card__actions">
+                <button className="btn btn--sm btn--outline" onClick={() => openReply(f)}>
+                  <Icon name="reply" size={14} /> {f.reply ? 'Edit reply' : 'Reply'}
+                </button>
+                <button className={`fb-resolve ${isResolved ? 'is-on' : ''}`} onClick={() => toggleResolved(f)}>
+                  <Icon name={isResolved ? 'circleCheck' : 'check'} size={14} /> {isResolved ? 'Resolved' : 'Mark resolved'}
+                </button>
               </div>
-            )}
-            <div className="fb-card__actions">
-              <button className="btn btn--sm btn--outline" onClick={() => openReply(f)}>
-                <Icon name="reply" size={14} /> {f.reply ? 'Edit reply' : 'Reply'}
-              </button>
-              <button className={`fb-resolve ${f.resolved ? 'is-on' : ''}`} onClick={() => toggleFeedbackResolved(f.id)}>
-                <Icon name={f.resolved ? 'circleCheck' : 'check'} size={14} /> {f.resolved ? 'Resolved' : 'Mark resolved'}
-              </button>
-            </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </div>
       {filtered.length === 0 && <div className="dash-empty"><Icon name="chat" size={30} /><p>No reviews match this filter.</p></div>}
 
@@ -134,7 +149,7 @@ export default function FeedbackPage() {
         open={!!activeReply}
         onClose={() => setReplyingId(null)}
         title="Reply to guest"
-        subtitle={activeReply ? `${nameOf(activeReply)} · ${activeReply.category}` : ''}
+        subtitle={activeReply ? nameOf(activeReply) : ''}
         footer={<>
           <button className="btn btn--outline" onClick={() => setReplyingId(null)}>Cancel</button>
           <button className="btn" onClick={sendReply} disabled={!replyText.trim()}><Icon name="reply" size={15} /> Send reply</button>
@@ -144,7 +159,7 @@ export default function FeedbackPage() {
           <>
             <div className="fb-reply-quote">
               <Stars rating={activeReply.rating} />
-              <p>“{activeReply.comment}”</p>
+              <p>"{activeReply.feedbackMessage}"</p>
             </div>
             <label className="field">
               <span className="field-label">Your response</span>

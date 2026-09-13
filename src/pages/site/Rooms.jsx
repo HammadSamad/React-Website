@@ -1,36 +1,52 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import PageHero from '../../components/site/PageHero.jsx';
 import RoomCard from '../../components/site/RoomCard.jsx';
 import Reveal from '../../components/common/Reveal.jsx';
 import Icon from '../../components/common/Icon.jsx';
-import { roomTypes } from '../../data/hotel.js';
+import Select from '../../components/common/Select.jsx';
 import { img } from '../../lib/images.js';
-import './Rooms.css';
-
-const tiers = ['All', 'Room', 'Suite', 'Junior Suite', 'Executive Suite', 'Penthouse', 'Cabana'];
+import { roomsApi } from '../../lib/api.js';
 const sorts = [
-  { id: 'featured', label: 'Featured' },
+  { id: 'number', label: 'Room Number' },
   { id: 'price-asc', label: 'Price · Low to High' },
   { id: 'price-desc', label: 'Price · High to Low' },
-  { id: 'size', label: 'Largest first' },
 ];
 
 export default function Rooms() {
   const [tier, setTier] = useState('All');
   const [guests, setGuests] = useState(0);
-  const [sort, setSort] = useState('featured');
+  const [sort, setSort] = useState('number');
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const reload = () => {
+    setLoading(true);
+    setError('');
+    roomsApi.list().then(data => {
+      setRooms(data);
+      setLoading(false);
+    }).catch(() => {
+      setError('We could not reach the room inventory service. Check that the backend server is running.');
+      setLoading(false);
+    });
+  };
+  useEffect(() => { reload(); }, []);
+
+  const tiers = useMemo(() => {
+    const types = new Set(rooms.map(r => r.roomType));
+    return ['All', ...Array.from(types)];
+  }, [rooms]);
 
   const list = useMemo(() => {
-    let r = roomTypes.filter((t) => (tier === 'All' ? true : t.tier === tier));
+    let r = rooms.filter((t) => (tier === 'All' ? true : t.roomType === tier));
     if (guests) r = r.filter((t) => t.maxGuests >= guests);
     switch (sort) {
-      case 'price-asc': r = [...r].sort((a, b) => a.price - b.price); break;
-      case 'price-desc': r = [...r].sort((a, b) => b.price - a.price); break;
-      case 'size': r = [...r].sort((a, b) => b.size - a.size); break;
-      default: r = [...r].sort((a, b) => Number(b.featured) - Number(a.featured));
+      case 'price-asc': r = [...r].sort((a, b) => a.roomPrice - b.roomPrice); break;
+      case 'price-desc': r = [...r].sort((a, b) => b.roomPrice - a.roomPrice); break;
+      default: r = [...r].sort((a, b) => a.roomNumber - b.roomNumber);
     }
     return r;
-  }, [tier, guests, sort]);
+  }, [tier, guests, sort, rooms]);
 
   return (
     <div className="rooms-page">
@@ -57,19 +73,22 @@ export default function Rooms() {
               ))}
             </div>
             <div className="rooms-controls">
-              <label className="rooms-select">
-                <Icon name="users" size={16} />
-                <select value={guests} onChange={(e) => setGuests(Number(e.target.value))} aria-label="Minimum guests">
-                  <option value={0}>Any guests</option>
-                  {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}+ guests</option>)}
-                </select>
-              </label>
-              <label className="rooms-select">
-                <Icon name="filter" size={16} />
-                <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort by">
-                  {sorts.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                </select>
-              </label>
+              <Select
+                variant="toolbar"
+                icon="users"
+                label="Minimum guests"
+                value={guests}
+                onChange={setGuests}
+                options={[{ value: 0, label: 'Any guests' }, ...[1, 2, 3, 4].map((n) => ({ value: n, label: `${n}+ guests` }))]}
+              />
+              <Select
+                variant="toolbar"
+                icon="filter"
+                label="Sort by"
+                value={sort}
+                onChange={setSort}
+                options={sorts.map((s) => ({ value: s.id, label: s.label }))}
+              />
             </div>
           </div>
         </div>
@@ -77,21 +96,35 @@ export default function Rooms() {
 
       <section className="section on-light" style={{ paddingTop: 0 }}>
         <div className="container container--wide">
-          <p className="rooms-count">{list.length} {list.length === 1 ? 'residence' : 'residences'} available</p>
-          {list.length === 0 ? (
+          {loading ? (
             <div className="rooms-empty">
-              <Icon name="search" size={28} />
-              <p>No suites match those filters. Try widening your search.</p>
-              <button className="btn btn--outline btn--sm" onClick={() => { setTier('All'); setGuests(0); }}>Reset filters</button>
+              <Icon name="loader" size={28} />
+              <p>Loading the collection…</p>
+            </div>
+          ) : error ? (
+            <div className="rooms-empty">
+              <Icon name="wifi" size={28} />
+              <p>{error}</p>
+              <button className="btn btn--outline btn--sm" onClick={reload}>Try again</button>
             </div>
           ) : (
-            <div className="rooms-grid">
-              {list.map((room, i) => (
-                <Reveal key={room.id} delay={(i % 3) * 0.08}>
-                  <RoomCard room={room} />
-                </Reveal>
-              ))}
-            </div>
+            <>            <p className="rooms-count">{list.length} {list.length === 1 ? 'residence' : 'residences'} available</p>
+            {list.length === 0 ? (
+              <div className="rooms-empty">
+                <Icon name="search" size={28} />
+                <p>No suites match those filters. Try widening your search.</p>
+                <button className="btn btn--outline btn--sm" onClick={() => { setTier('All'); setGuests(0); }}>Reset filters</button>
+              </div>
+            ) : (
+              <div className="rooms-grid">
+                {list.map((room, i) => (
+                  <Reveal key={room._id || room.id} delay={(i % 3) * 0.08}>
+                    <RoomCard room={room} />
+                  </Reveal>
+                ))}
+              </div>
+            )}
+            </>
           )}
         </div>
       </section>

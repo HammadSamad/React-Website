@@ -4,8 +4,6 @@ import PageHero from '../../components/site/PageHero.jsx';
 import SmartImage from '../../components/common/SmartImage.jsx';
 import Icon from '../../components/common/Icon.jsx';
 import { galleryImages, img } from '../../lib/images.js';
-import './Gallery.css';
-
 export default function Gallery() {
   const [open, setOpen] = useState(null); // index or null
 

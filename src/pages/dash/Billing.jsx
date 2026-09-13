@@ -4,66 +4,115 @@ import StatusBadge from '../../components/dash/StatusBadge.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import Icon from '../../components/common/Icon.jsx';
 import { useData } from '../../context/DataContext.jsx';
-import { guestById, money, invoiceTotals, hotelInfo } from '../../data/hotel.js';
-import './Billing.css';
-
+import { money, hotelInfo, paymentMethods } from '../../data/hotel.js';
+import { invoicesApi, paymentsApi } from '../../lib/api.js';
 const TABS = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
   { key: 'paid', label: 'Paid' },
 ];
-const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+const fmt = (iso) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 export default function Billing() {
-  const { invoices, markInvoicePaid, addInvoice, guests, settings } = useData();
+  const { invoices, setInvoices, guests, settings, notify, refreshAll } = useData();
   const [q, setQ] = useState('');
   const [tab, setTab] = useState('all');
   const [active, setActive] = useState(null);
   const [creating, setCreating] = useState(false);
   const [invGuest, setInvGuest] = useState('');
-  const [lines, setLines] = useState([{ label: '', amount: '' }]);
+  const [charges, setCharges] = useState({ roomCharges: '', foodCharges: '', laundryCharges: '', otherCharges: '', tax: '' });
+  const [paymentModal, setPaymentModal] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'cash' });
 
   const gById = useMemo(() => {
-    const m = { ...guestById };
-    for (const g of guests) m[g.id] = g;
+    const m = {};
+    for (const g of guests) m[g._id || g.id] = g;
     return m;
   }, [guests]);
-  const nameOf = (inv) => gById[inv.guestId]?.name || 'Guest';
+  const nameOf = (inv) => {
+    const g = inv.guestId;
+    if (g?.guestName) return g.guestName;
+    if (g?.name) return g.name;
+    return gById[inv.guestId]?._id ? (gById[inv.guestId].guestName || gById[inv.guestId].name) : 'Guest';
+  };
 
   const counts = useMemo(() => {
     const c = { all: invoices.length };
-    for (const i of invoices) c[i.status] = (c[i.status] || 0) + 1;
+    for (const i of invoices) c[i.paymentStatus] = (c[i.paymentStatus] || 0) + 1;
     return c;
   }, [invoices]);
 
   const outstanding = useMemo(
-    () => invoices.filter((i) => i.status === 'pending').reduce((s, i) => s + invoiceTotals(i.items, settings.taxRate).total, 0),
-    [invoices, settings.taxRate]
+    () => invoices.filter((i) => i.paymentStatus === 'pending').reduce((s, i) => s + (i.totalAmount || 0), 0),
+    [invoices]
   );
 
   const filtered = useMemo(() => invoices.filter((inv) => {
-    if (tab !== 'all' && inv.status !== tab) return false;
+    if (tab !== 'all' && inv.paymentStatus !== tab) return false;
     if (!q) return true;
-    return `${inv.number} ${nameOf(inv)}`.toLowerCase().includes(q.toLowerCase());
+    return `${nameOf(inv)} ${(inv._id || inv.id || '').slice(-6)}`.toLowerCase().includes(q.toLowerCase());
   }), [invoices, tab, q]);
 
-  const inv = active ? invoices.find((i) => i.id === active) : null;
-  const totals = inv ? invoiceTotals(inv.items, settings.taxRate) : null;
+  const inv = active ? invoices.find((i) => (i._id || i.id) === active) : null;
 
-  const setLine = (i, key, val) => setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, [key]: val } : l)));
-  const addLine = () => setLines((ls) => [...ls, { label: '', amount: '' }]);
-  const removeLine = (i) => setLines((ls) => (ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls));
-  const cleanItems = lines
-    .map((l) => ({ label: l.label.trim(), amount: Math.round(Number(l.amount) || 0) }))
-    .filter((l) => l.label && l.amount > 0);
-  const createTotals = invoiceTotals(cleanItems, settings.taxRate);
-  const canCreate = invGuest && cleanItems.length > 0;
-  const submitInvoice = () => {
+  const setCharge = (key, val) => setCharges((c) => ({ ...c, [key]: val }));
+  const totalCharges = Number(charges.roomCharges || 0) + Number(charges.foodCharges || 0) + Number(charges.laundryCharges || 0) + Number(charges.otherCharges || 0) + Number(charges.tax || 0);
+  const canCreate = invGuest && totalCharges > 0;
+  const submitInvoice = async () => {
     if (!canCreate) return;
-    addInvoice({ guestId: invGuest, items: cleanItems });
-    setCreating(false);
-    setInvGuest('');
-    setLines([{ label: '', amount: '' }]);
+    try {
+      const payload = {
+        guestId: invGuest,
+        roomCharges: Number(charges.roomCharges || 0),
+        foodCharges: Number(charges.foodCharges || 0),
+        laundryCharges: Number(charges.laundryCharges || 0),
+        otherCharges: Number(charges.otherCharges || 0),
+        tax: Number(charges.tax || 0),
+      };
+      await invoicesApi.create(payload);
+      refreshAll();
+      setCreating(false);
+      setInvGuest('');
+      setCharges({ roomCharges: '', foodCharges: '', laundryCharges: '', otherCharges: '', tax: '' });
+      notify('Invoice created');
+    } catch (e) {
+      notify(e.message, 'error');
+    }
+  };
+
+  const submitPayment = async (invoiceId) => {
+    try {
+      const invoice = invoices.find((i) => (i._id || i.id) === invoiceId);
+      const guestId = invoice?.guestId?._id || invoice?.guestId;
+      if (!guestId) {
+        notify('This invoice has no guest. Add or refresh the invoice first.', 'error');
+        return;
+      }
+      await paymentsApi.create({ invoiceId, guestId, amount: Number(paymentForm.amount), paymentMethod: paymentForm.method, paymentStatus: 'paid' });
+      notify('Payment recorded');
+      setPaymentModal(null);
+      setPaymentForm({ amount: '', method: 'cash' });
+      refreshAll();
+    } catch (e) {
+      notify(e.message, 'error');
+    }
+  };
+
+  const downloadPdf = async (id) => {
+    try {
+      const blob = await invoicesApi.downloadPdf(id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `invoice-${id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      notify('PDF downloaded');
+    } catch (e) {
+      notify(e.message, 'error');
+    }
   };
 
   return (
@@ -96,27 +145,23 @@ export default function Billing() {
         <div className="dash-table-wrap">
           <table className="dash-table">
             <thead>
-              <tr><th>Invoice</th><th>Guest</th><th>Issued</th><th className="num">Items</th><th className="num">Total</th><th>Status</th><th></th></tr>
+              <tr><th>Invoice</th><th>Guest</th><th>Issued</th><th className="num">Total</th><th>Status</th><th></th></tr>
             </thead>
             <tbody>
-              {filtered.map((invoice) => {
-                const t = invoiceTotals(invoice.items, settings.taxRate);
-                return (
-                  <tr key={invoice.id}>
-                    <td className="td-strong">{invoice.number}</td>
-                    <td>{nameOf(invoice)}</td>
-                    <td className="td-mut">{fmt(invoice.issued)}</td>
-                    <td className="num td-mut">{invoice.items.length}</td>
-                    <td className="num td-strong">{money(t.total)}</td>
-                    <td><StatusBadge status={invoice.status} /></td>
-                    <td>
-                      <div className="row-actions">
-                        <button className="btn btn--sm btn--ghost" onClick={() => setActive(invoice.id)}>View</button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filtered.map((invoice) => (
+                <tr key={invoice._id || invoice.id}>
+                  <td className="td-strong">#{(invoice._id || invoice.id || '').slice(-6).toUpperCase()}</td>
+                  <td>{nameOf(invoice)}</td>
+                  <td className="td-mut">{fmt(invoice.createdAt)}</td>
+                  <td className="num td-strong">{money(invoice.totalAmount || 0)}</td>
+                  <td><StatusBadge status={invoice.paymentStatus} /></td>
+                  <td>
+                    <div className="row-actions">
+                      <button className="btn btn--sm btn--ghost" onClick={() => setActive(invoice._id || invoice.id)}>View</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
           {filtered.length === 0 && <div className="dash-empty"><Icon name="receipt" size={30} /><p>No invoices found.</p></div>}
@@ -128,11 +173,14 @@ export default function Billing() {
         onClose={() => setActive(null)}
         wide
         title="Invoice"
-        subtitle={inv?.number}
+        subtitle={`#${(inv?._id || inv?.id || '').slice(-6).toUpperCase()}`}
         footer={inv && <>
-          <button className="btn btn--outline" onClick={() => window.print()}><Icon name="print" size={15} /> Print</button>
-          {inv.status === 'pending'
-            ? <button className="btn" onClick={() => { markInvoicePaid(inv.id); }}><Icon name="check" size={15} /> Mark paid</button>
+          <button className="btn btn--outline" onClick={() => downloadPdf(inv._id || inv.id)}><Icon name="download" size={15} /> Download PDF</button>
+          {inv.paymentStatus === 'pending'
+            ? <button className="btn" onClick={() => { setPaymentModal(inv._id || inv.id); setPaymentForm({ amount: '', method: 'cash' }); }}><Icon name="creditCard" size={15} /> Add payment</button>
+            : <button className="btn" disabled><Icon name="circleCheck" size={15} /> Settled</button>}
+          {inv.paymentStatus === 'pending'
+            ? <button className="btn" onClick={() => { const invId = inv._id || inv.id; invoicesApi.updatePaymentStatus(invId, 'paid').then(() => refreshAll()).catch(() => {}); }}><Icon name="check" size={15} /> Mark paid</button>
             : <button className="btn" disabled><Icon name="circleCheck" size={15} /> Settled</button>}
         </>}
       >
@@ -145,31 +193,31 @@ export default function Billing() {
               </div>
               <div className="invoice-doc__meta">
                 <div className="invoice-doc__word">Invoice</div>
-                <div className="invoice-doc__num">{inv.number}</div>
-                <div className="invoice-doc__date">Issued {fmt(inv.issued)}</div>
-                <StatusBadge status={inv.status} />
+                <div className="invoice-doc__num">#{(inv._id || inv.id || '').slice(-6).toUpperCase()}</div>
+                <div className="invoice-doc__date">Issued {fmt(inv.createdAt)}</div>
+                <StatusBadge status={inv.paymentStatus} />
               </div>
             </div>
 
             <div className="invoice-doc__billed">
               <span className="invoice-doc__k">Billed to</span>
               <div className="invoice-doc__guest">{nameOf(inv)}</div>
-              <div className="invoice-doc__gsub">{gById[inv.guestId]?.email} · {gById[inv.guestId]?.country}</div>
+              <div className="invoice-doc__gsub">{inv.guestId?.guestEmail || gById[inv.guestId]?.guestEmail || ''} · {inv.guestId?.guestCountry || gById[inv.guestId]?.guestCountry || ''}</div>
             </div>
 
             <table className="invoice-lines">
               <thead><tr><th>Description</th><th className="num">Amount</th></tr></thead>
               <tbody>
-                {inv.items.map((it, i) => (
-                  <tr key={i}><td>{it.label}</td><td className="num">{money(it.amount)}</td></tr>
-                ))}
+                {inv.roomCharges > 0 && <tr><td>Room charges</td><td className="num">{money(inv.roomCharges)}</td></tr>}
+                {inv.foodCharges > 0 && <tr><td>Food & beverage</td><td className="num">{money(inv.foodCharges)}</td></tr>}
+                {inv.laundryCharges > 0 && <tr><td>Laundry</td><td className="num">{money(inv.laundryCharges)}</td></tr>}
+                {inv.otherCharges > 0 && <tr><td>Other charges</td><td className="num">{money(inv.otherCharges)}</td></tr>}
+                {inv.tax > 0 && <tr><td>Tax & service</td><td className="num">{money(inv.tax)}</td></tr>}
               </tbody>
             </table>
 
             <div className="invoice-totals">
-              <div className="invoice-totals__row"><span>Subtotal</span><span>{money(totals.subtotal)}</span></div>
-              <div className="invoice-totals__row"><span>Tax &amp; service ({settings.taxRate}%)</span><span>{money(totals.tax)}</span></div>
-              <div className="invoice-totals__row invoice-totals__row--grand"><span>Total</span><span>{money(totals.total)}</span></div>
+              <div className="invoice-totals__row invoice-totals__row--grand"><span>Total</span><span>{money(inv.totalAmount || 0)}</span></div>
             </div>
 
             <p className="invoice-doc__foot">Thank you for staying with {hotelInfo.full}. We look forward to welcoming you again.</p>
@@ -183,37 +231,57 @@ export default function Billing() {
         onClose={() => setCreating(false)}
         wide
         title="New invoice"
-        subtitle="Draft a folio and add line items."
+        subtitle="Create an invoice with charge breakdown."
         footer={<>
           <button className="btn btn--outline" onClick={() => setCreating(false)}>Cancel</button>
           <button className="btn" onClick={submitInvoice} disabled={!canCreate}>Create invoice</button>
         </>}
       >
         <label className="field inv-create__guest">
-          <span className="field-label">Guest</span>
+          <span className="field-label">Guest *</span>
           <select className="select" value={invGuest} onChange={(e) => setInvGuest(e.target.value)}>
             <option value="" disabled>Select a guest…</option>
-            {guests.map((g) => <option key={g.id} value={g.id}>{g.name}{g.vip ? ' · VIP' : ''}</option>)}
+            {guests.map((g) => <option key={g._id || g.id} value={g._id || g.id}>{g.guestName || g.name}{g.vip ? ' · VIP' : ''}</option>)}
           </select>
         </label>
 
-        <span className="field-label">Line items</span>
-        <div className="inv-lines">
-          {lines.map((l, i) => (
-            <div className="inv-line" key={i}>
-              <input className="input" value={l.label} onChange={(e) => setLine(i, 'label', e.target.value)} placeholder="Description — e.g. Garden Deluxe × 3 nights" />
-              <input className="input" type="number" min="0" value={l.amount} onChange={(e) => setLine(i, 'amount', e.target.value)} placeholder="Amount" />
-              <button type="button" className="inv-line__del" onClick={() => removeLine(i)} disabled={lines.length === 1} title="Remove line"><Icon name="trash" size={15} /></button>
-            </div>
-          ))}
+        <div className="form-grid form-grid--2" style={{ marginTop: '1rem' }}>
+          <label className="field"><span className="field-label">Room charges</span>
+            <input className="input" type="number" min="0" value={charges.roomCharges} onChange={(e) => setCharge('roomCharges', e.target.value)} placeholder="0" /></label>
+          <label className="field"><span className="field-label">Food & beverage</span>
+            <input className="input" type="number" min="0" value={charges.foodCharges} onChange={(e) => setCharge('foodCharges', e.target.value)} placeholder="0" /></label>
         </div>
-        <button type="button" className="btn btn--sm btn--ghost inv-add-line" onClick={addLine}><Icon name="plus" size={14} /> Add line</button>
+        <div className="form-grid form-grid--2" style={{ marginTop: '1rem' }}>
+          <label className="field"><span className="field-label">Laundry</span>
+            <input className="input" type="number" min="0" value={charges.laundryCharges} onChange={(e) => setCharge('laundryCharges', e.target.value)} placeholder="0" /></label>
+          <label className="field"><span className="field-label">Other charges</span>
+            <input className="input" type="number" min="0" value={charges.otherCharges} onChange={(e) => setCharge('otherCharges', e.target.value)} placeholder="0" /></label>
+        </div>
+        <label className="field" style={{ marginTop: '1rem' }}><span className="field-label">Tax</span>
+          <input className="input" type="number" min="0" value={charges.tax} onChange={(e) => setCharge('tax', e.target.value)} placeholder="0" /></label>
 
-        <div className="inv-create__totals">
-          <div className="inv-create__row"><span>Subtotal</span><span>{money(createTotals.subtotal)}</span></div>
-          <div className="inv-create__row"><span>Tax &amp; service ({settings.taxRate}%)</span><span>{money(createTotals.tax)}</span></div>
-          <div className="inv-create__row inv-create__row--grand"><span>Total</span><span>{money(createTotals.total)}</span></div>
+        <div className="inv-create__totals" style={{ marginTop: '1.5rem' }}>
+          <div className="inv-create__row inv-create__row--grand"><span>Total</span><span>{money(totalCharges)}</span></div>
         </div>
+      </Modal>
+
+      {/* Payment modal */}
+      <Modal
+        open={!!paymentModal}
+        onClose={() => setPaymentModal(null)}
+        title="Record payment"
+        subtitle="Add a payment against this invoice."
+        footer={<>
+          <button className="btn btn--outline" onClick={() => setPaymentModal(null)}>Cancel</button>
+          <button className="btn" onClick={() => paymentModal && submitPayment(paymentModal)} disabled={!paymentForm.amount || Number(paymentForm.amount) <= 0}>Save payment</button>
+        </>}
+      >
+        <label className="field"><span className="field-label">Amount *</span>
+          <input className="input" type="number" min="0" step="0.01" value={paymentForm.amount} onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value }))} placeholder="0.00" /></label>
+        <label className="field"><span className="field-label">Method</span>
+          <select className="select" value={paymentForm.method} onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value }))}>
+            {paymentMethods.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+          </select></label>
       </Modal>
     </>
   );
