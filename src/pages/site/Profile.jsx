@@ -85,7 +85,7 @@ export default function Profile() {
         <div className="form-grid">
           <label className="field"><span className="field-label">Full name</span><input className="input" value={form.name} onChange={set('name')} required /></label>
           <label className="field"><span className="field-label">Email address</span><input className="input" type="email" value={form.email} onChange={set('email')} required /></label>
-          <label className="field"><span className="field-label">Phone</span><input className="input" pattern="^(?=(?:\D*\d){11,15}\D*$)[\d\s().+/-]*$" title="Phone number must contain 11 to 15 digits" value={form.phone} onChange={set('phone')} placeholder="+65 …" /></label>
+          <label className="field"><span className="field-label">Phone</span><input className="input" pattern="^(?=(?:\D*\d){11,15}\D*$)[\d\s.+\-\/]*$" title="Phone number must contain 11 to 15 digits" value={form.phone} onChange={set('phone')} placeholder="+65 …" /></label>
           <label className="field"><span className="field-label">Country of residence</span><input className="input" value={form.country} onChange={set('country')} placeholder="Country" /></label>
         </div>
         <label className="field profile-form__prefs"><span className="field-label">Stay preferences <span className="field-optional">optional</span></span><input className="input" value={form.preferences} onChange={set('preferences')} placeholder="e.g. High floor, Feather-free pillows" /><small>Separate preferences with commas.</small></label>

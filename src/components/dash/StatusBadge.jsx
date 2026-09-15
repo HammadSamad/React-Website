@@ -12,7 +12,7 @@ const MAP = {
   departing: ['cleaning', 'Departing'],
   confirmed: ['occupied', 'Confirmed'],
   'checked-out': ['neutral', 'Checked out'],
-  cancelled: ['maintenance', 'Cancelled'],
+  cancelled: ['cancelled', 'Cancelled'],
   // tasks / maintenance / invoices
   pending: ['occupied', 'Pending'],
   'in-progress': ['cleaning', 'In progress'],
@@ -20,7 +20,7 @@ const MAP = {
   open: ['maintenance', 'Open'],
   resolved: ['available', 'Resolved'],
   paid: ['available', 'Paid'],
-  refunded: ['maintenance', 'Refunded'],
+  refunded: ['refunded', 'Refunded'],
   failed: ['occupied', 'Failed'],
   // guest services
   requested: ['occupied', 'Requested'],

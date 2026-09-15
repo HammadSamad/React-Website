@@ -9,7 +9,8 @@ import { useNow } from '../../lib/useNow.js';
 const NAV = [
   { to: '/dashboard', label: 'Overview', icon: 'dashboard', end: true },
   { to: '/dashboard/reservations', label: 'Reservations', icon: 'calendar', roles: ['admin', 'manager', 'receptionist'] },
-  { to: '/dashboard/rooms', label: 'Rooms', icon: 'door' },
+  { to: '/dashboard/checkinout', label: 'Check-in / out', icon: 'key', roles: ['admin', 'manager', 'receptionist'] },
+  { to: '/dashboard/rooms', label: 'Rooms', icon: 'door', roles: ['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance'] },
   { to: '/dashboard/guests', label: 'Guests', icon: 'users', roles: ['admin', 'manager', 'receptionist'] },
   { to: '/dashboard/housekeeping', label: 'Housekeeping', icon: 'broom', roles: ['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance'] },
   { to: '/dashboard/services', label: 'Services', icon: 'sparkles', roles: ['admin', 'manager', 'receptionist', 'housekeeping'] },
@@ -60,7 +61,9 @@ const staffNotifications = notifications.filter((n) => {
   useEffect(() => {
     setOpen(false);
     setNotifOpen(false);
-    window.scrollTo({ top: 0, behavior: 'auto' });
+    const root = document.scrollingElement || document.documentElement;
+    try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); } catch { /* older engines: direct assignment is always instant */ }
+    if (root.scrollTop !== 0) root.scrollTop = 0;
   }, [location.pathname]);
 
   // Close the notifications panel on outside-click / Escape.

@@ -4,6 +4,7 @@ import Reveal from '../../components/common/Reveal.jsx';
 import Icon from '../../components/common/Icon.jsx';
 import Select from '../../components/common/Select.jsx';
 import { useData } from '../../context/DataContext.jsx';
+import { feedbackApi } from '../../lib/api.js';
 import { hotelInfo } from '../../data/hotel.js';
 const details = (info) => [
   { icon: 'mapPin', label: 'Visit', lines: [info.address, `${info.city}`] },
@@ -15,16 +16,26 @@ const details = (info) => [
 export default function Contact() {
   const { notify } = useData();
   const [form, setForm] = useState({ name: '', email: '', subject: 'Reservation enquiry', message: '' });
-  const [sent, setSent] = useState(false);
+  const [state, setState] = useState('idle');
+  const sending = state === 'sending';
+  const sent = state === 'sent';
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    setSent(true);
-    notify('Thank you — your message has reached our concierge.', 'success');
-    setForm({ name: '', email: '', subject: 'Reservation enquiry', message: '' });
-    setTimeout(() => setSent(false), 4000);
+    if (sending || sent) return;
+    setState('sending');
+    try {
+      await feedbackApi.contact(form);
+      setState('sent');
+      notify('Thank you — your message has reached our concierge.', 'success');
+      setForm({ name: '', email: '', subject: 'Reservation enquiry', message: '' });
+      window.setTimeout(() => setState('idle'), 4000);
+    } catch (error) {
+      setState('idle');
+      notify(error.message || 'Your message could not be sent. Please try again.', 'error');
+    }
   };
 
   return (
@@ -68,8 +79,8 @@ export default function Contact() {
                 <span className="field-label">Message</span>
                 <textarea className="textarea" rows={5} required value={form.message} onChange={set('message')} placeholder="How can we help?" />
               </label>
-              <button className="btn" type="submit" disabled={sent}>
-                {sent ? (<><Icon name="check" size={16} /> Message sent</>) : 'Send message'}
+              <button className="btn" type="submit" disabled={sending || sent}>
+                {sending ? <><Icon name="loader" size={16} /> Sending…</> : sent ? (<><Icon name="check" size={16} /> Message sent</>) : 'Send message'}
               </button>
             </form>
           </Reveal>

@@ -22,6 +22,7 @@ import NotFound from './pages/site/NotFound.jsx';
 /* ------------------------------ Dashboard -------------------------------- */
 import Overview from './pages/dash/Overview.jsx';
 import Reservations from './pages/dash/Reservations.jsx';
+import CheckInOut from './pages/dash/CheckInOut.jsx';
 import DashRooms from './pages/dash/DashRooms.jsx';
 import Guests from './pages/dash/Guests.jsx';
 import Housekeeping from './pages/dash/Housekeeping.jsx';
@@ -76,18 +77,19 @@ export default function App() {
           }
         >
           <Route index element={<Overview />} />
-          <Route path="reservations" element={<ProtectedRoute roles={FRONT_DESK}><Reservations /></ProtectedRoute>} />
-          <Route path="rooms" element={<DashRooms />} />
-          <Route path="guests" element={<ProtectedRoute roles={FRONT_DESK}><Guests /></ProtectedRoute>} />
-          <Route path="housekeeping" element={<ProtectedRoute roles={['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance']}><Housekeeping /></ProtectedRoute>} />
-          <Route path="services" element={<ProtectedRoute roles={['admin', 'manager', 'receptionist', 'housekeeping']}><Services /></ProtectedRoute>} />
-          <Route path="billing" element={<ProtectedRoute roles={FRONT_DESK}><Billing /></ProtectedRoute>} />
-          <Route path="payments" element={<ProtectedRoute roles={FRONT_DESK}><Payments /></ProtectedRoute>} />
-          <Route path="feedback" element={<ProtectedRoute roles={['admin', 'manager']}><FeedbackPage /></ProtectedRoute>} />
-          <Route path="reports" element={<ProtectedRoute roles={['admin', 'manager']}><Reports /></ProtectedRoute>} />
-          <Route path="staff" element={<ProtectedRoute roles={['admin', 'manager']}><Staff /></ProtectedRoute>} />
-          <Route path="notifications" element={<ProtectedRoute roles={STAFF}><Notifications /></ProtectedRoute>} />
-          <Route path="settings" element={<ProtectedRoute roles={['admin']}><Settings /></ProtectedRoute>} />
+          <Route path="reservations" element={<ProtectedRoute module="reservations" roles={FRONT_DESK}><Reservations /></ProtectedRoute>} />
+          <Route path="checkinout" element={<ProtectedRoute module="checkinout" roles={FRONT_DESK}><CheckInOut /></ProtectedRoute>} />
+          <Route path="rooms" element={<ProtectedRoute module="rooms" roles={STAFF}><DashRooms /></ProtectedRoute>} />
+          <Route path="guests" element={<ProtectedRoute module="guests" roles={FRONT_DESK}><Guests /></ProtectedRoute>} />
+          <Route path="housekeeping" element={<ProtectedRoute module="housekeeping" roles={['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance']}><Housekeeping /></ProtectedRoute>} />
+          <Route path="services" element={<ProtectedRoute module="services" roles={['admin', 'manager', 'receptionist', 'housekeeping']}><Services /></ProtectedRoute>} />
+          <Route path="billing" element={<ProtectedRoute module="billing" roles={FRONT_DESK}><Billing /></ProtectedRoute>} />
+          <Route path="payments" element={<ProtectedRoute module="payments" roles={FRONT_DESK}><Payments /></ProtectedRoute>} />
+          <Route path="feedback" element={<ProtectedRoute module="feedback" roles={['admin', 'manager']}><FeedbackPage /></ProtectedRoute>} />
+          <Route path="reports" element={<ProtectedRoute module="reports" roles={['admin', 'manager']}><Reports /></ProtectedRoute>} />
+          <Route path="staff" element={<ProtectedRoute module="staff" roles={['admin', 'manager']}><Staff /></ProtectedRoute>} />
+          <Route path="notifications" element={<ProtectedRoute module="notifications" roles={STAFF}><Notifications /></ProtectedRoute>} />
+          <Route path="settings" element={<ProtectedRoute module="settings" roles={['admin']}><Settings /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>

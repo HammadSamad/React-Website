@@ -7,7 +7,13 @@ import Footer from './Footer.jsx';
 export function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+    // Route changes must jump to the top INSTANTLY. `html { scroll-behavior:
+    // smooth }` would otherwise turn a scrollTo() into a slow animation that
+    // races with the landing page's own scroll logic (e.g. the billing
+    // `?invoice=` deep-link), leaving the new page at the wrong scroll offset.
+    const root = document.scrollingElement || document.documentElement;
+    try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); } catch { /* older engines: direct assignment is always instant */ }
+    if (root.scrollTop !== 0) root.scrollTop = 0;
   }, [pathname]);
   return null;
 }

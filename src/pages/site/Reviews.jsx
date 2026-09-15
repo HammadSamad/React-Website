@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PageHero from '../../components/site/PageHero.jsx';
 import Reveal from '../../components/common/Reveal.jsx';
 import Stars from '../../components/common/Stars.jsx';
 import Icon from '../../components/common/Icon.jsx';
 import Select from '../../components/common/Select.jsx';
-import { useData } from '../../context/DataContext.jsx';
+import { feedbackApi } from '../../lib/api.js';
 import { testimonials } from '../../data/hotel.js';
 const CATEGORIES = ['Overall', 'Service', 'Room', 'Dining', 'Spa', 'Amenities'];
 const initials = (n = '') => n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
@@ -16,33 +16,52 @@ const fmt = (iso) => {
 const BLANK = { rating: 5, name: '', category: 'Overall', comment: '' };
 
 export default function Reviews() {
-  const { feedback, addFeedback } = useData();
+  const [reviews, setReviews] = useState([]);
   const [form, setForm] = useState(BLANK);
   const [hover, setHover] = useState(0);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const nameOf = (f) => f.guestId?.guestName || f.name || 'Guest';
+  useEffect(() => {
+    let active = true;
+    feedbackApi.publicReviews()
+      .then((data) => { if (active) setReviews(Array.isArray(data) ? data : []); })
+      .catch(() => { if (active) setReviews([]); });
+    return () => { active = false; };
+  }, []);
 
-  const total = feedback.length;
-  const avg = useMemo(() => (total ? feedback.reduce((s, f) => s + f.rating, 0) / total : 0), [feedback, total]);
+  const nameOf = (f) => f.name || 'Guest';
+
+  const total = reviews.length;
+  const avg = useMemo(() => (total ? reviews.reduce((s, f) => s + f.rating, 0) / total : 0), [reviews, total]);
   const dist = useMemo(() => {
     const d = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    for (const f of feedback) d[f.rating] = (d[f.rating] || 0) + 1;
+    for (const f of reviews) d[f.rating] = (d[f.rating] || 0) + 1;
     return d;
-  }, [feedback]);
+  }, [reviews]);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!form.comment.trim()) return;
-    addFeedback({
-      rating: form.rating,
-      feedbackMessage: form.comment.trim(),
-      category: form.category,
-    });
-    setForm(BLANK);
-    setSent(true);
-    setTimeout(() => setSent(false), 4000);
+    setSubmitting(true);
+    setError('');
+    try {
+      await feedbackApi.submitReview({
+        name: form.name.trim(),
+        rating: form.rating,
+        message: form.comment.trim(),
+        category: form.category,
+      });
+      setForm(BLANK);
+      setSent(true);
+      setTimeout(() => setSent(false), 4000);
+    } catch (err) {
+      setError(err?.message || 'Your review could not be submitted — please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -79,7 +98,7 @@ export default function Reviews() {
           </Reveal>
 
           <Reveal className="sec-head sec-head--center" style={{ margin: '4.5rem 0 3rem' }}>
-            <p className="eyebrow eyebrow--muted"><span className="rule" style={{ width: 40 }} /> In their words</p>
+            <p className="eyebrow eyebrow--muted"><span className="rule" style={{ width: 40 }} /> In their words <span className="rule" style={{ width: 40 }} /></p>
             <h2 className="sec-head__title">Guests who return</h2>
           </Reveal>
           <div className="tst-grid">
@@ -107,7 +126,7 @@ export default function Reviews() {
                 <h2 className="sec-head__title">What guests are saying</h2>
               </Reveal>
               <div className="rv-list">
-                {feedback.slice(0, 9).map((f, i) => (
+                {reviews.slice(0, 9).map((f, i) => (
                   <Reveal as="article" className="rv-card" key={f._id || f.id} delay={(i % 3) * 0.08}>
                     <div className="rv-card__top">
                       <span className="rv-card__avatar">{initials(nameOf(f))}</span>
@@ -120,6 +139,9 @@ export default function Reviews() {
                     <p className="rv-card__comment">“{f.feedbackMessage}”</p>
                   </Reveal>
                 ))}
+                {total === 0 && (
+                  <p className="rv-empty">Be the first to share your stay with us.</p>
+                )}
               </div>
             </div>
 
@@ -165,8 +187,9 @@ export default function Reviews() {
                   <span className="field-label">Your review</span>
                   <textarea className="textarea" rows={4} required value={form.comment} onChange={set('comment')} placeholder="Tell us about your stay…" />
                 </label>
-                <button className="btn btn--block" type="submit" disabled={sent}>
-                  {sent ? (<><Icon name="check" size={16} /> Thank you</>) : (<>Submit review <Icon name="arrowRight" size={16} /></>)}
+                {error && <p className="rv-form-card__error">{error}</p>}
+                <button className="btn btn--block" type="submit" disabled={sent || submitting}>
+                  {sent ? (<><Icon name="check" size={16} /> Thank you</>) : (submitting ? (<>Submitting…</>) : (<>Submit review <Icon name="arrowRight" size={16} /></>))}
                 </button>
               </form>
             </aside>

@@ -79,7 +79,7 @@ export default function Login() {
             <label className="field">
               <span className="field-label">Password</span>
               <div className="login__password">
-                <input className="input" type={show ? 'text' : 'password'} name="password" required autoComplete="current-password" pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$" title="Password must be at least 8 characters, with one uppercase, one lowercase, one number and one special character"
+                <input className="input" type={show ? 'text' : 'password'} name="password" required autoComplete="current-password"
                   value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} placeholder="••••••••" />
                 <button type="button" className="login__peek" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'}>
                   <Icon name="eye" size={16} />

@@ -13,10 +13,11 @@ const fmtDate = (iso) => {
 };
 
 function Stars({ rating, size = 14 }) {
+  const value = Number(rating) || 0;
   return (
-    <span className="stars" aria-label={`${rating} out of 5`}>
+    <span className="stars" aria-label={`${value} out of 5`}>
       {Array.from({ length: 5 }).map((_, i) => (
-        <Icon key={i} name="star" size={size} style={{ color: i < rating ? 'var(--brass)' : 'var(--forest-2)' }} />
+        <Icon key={i} name="star" size={size} style={{ color: i < value ? 'var(--brass)' : 'var(--forest-2)' }} />
       ))}
     </span>
   );
@@ -30,21 +31,23 @@ export default function FeedbackPage() {
 
   const guestMap = useMemo(() => Object.fromEntries(guests.map((g) => [g._id || g.id, g.guestName || g.name])), [guests]);
   const nameOf = (f) => {
+    if (f.guestName) return f.guestName;
     if (f.guestId?.guestName) return f.guestId.guestName;
     if (f.guestId?.name) return f.guestId.name;
     return guestMap[f.guestId] || 'Guest';
   };
 
-  const avg = useMemo(() => (feedback.length ? feedback.reduce((s, f) => s + f.rating, 0) / feedback.length : 0), [feedback]);
+  const rated = useMemo(() => feedback.filter((f) => f.rating), [feedback]);
+  const avg = useMemo(() => (rated.length ? rated.reduce((s, f) => s + f.rating, 0) / rated.length : 0), [rated]);
   const dist = useMemo(() => {
     const d = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    for (const f of feedback) d[f.rating] = (d[f.rating] || 0) + 1;
+    for (const f of rated) d[f.rating] = (d[f.rating] || 0) + 1;
     return d;
-  }, [feedback]);
+  }, [rated]);
 
   const filtered = useMemo(() => feedback.filter((f) => {
     if (rating === 'all') return true;
-    if (rating === 'low') return f.rating <= 3;
+    if (rating === 'low') return f.rating && f.rating <= 3;
     return f.rating === Number(rating);
   }), [feedback, rating]);
 
@@ -79,7 +82,7 @@ export default function FeedbackPage() {
         <Reveal as="section" className="panel fb-score">
           <div className="fb-score__num">{avg.toFixed(1)}</div>
           <div className="fb-score__stars"><Stars rating={Math.round(avg)} size={20} /></div>
-          <div className="fb-score__sub">Average across {feedback.length} reviews</div>
+          <div className="fb-score__sub">Average across {rated.length} reviews</div>
         </Reveal>
 
         <Reveal as="section" className="panel" delay={0.08}>
@@ -119,7 +122,7 @@ export default function FeedbackPage() {
                 <span className="cell-avatar">{initials(nameOf(f))}</span>
                 <div className="fb-card__id">
                   <div className="fb-card__name">{nameOf(f)}</div>
-                  <div className="fb-card__meta">{f.room || 'Website'} · {fmtDate(f.feedbackDate)}</div>
+                  <div className="fb-card__meta">{f.subject || f.room || 'Website'} · {fmtDate(f.feedbackDate)}</div>
                 </div>
                 {f.category && <span className="fb-card__cat">{f.category}</span>}
               </div>

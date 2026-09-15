@@ -8,7 +8,7 @@ import StatusBadge from '../../components/dash/StatusBadge.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useData } from '../../context/DataContext.jsx';
-import { reservationsApi } from '../../lib/api.js';
+import { myBillingApi, reservationsApi } from '../../lib/api.js';
 import { serviceTypeById, nights, money, paymentMethods, paymentMethodById } from '../../data/hotel.js';
 import { img } from '../../lib/images.js';
 const fmt = (value) => {
@@ -49,6 +49,22 @@ export default function Account() {
       notify(error.message || 'The reservation could not be cancelled.', 'error');
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const downloadInvoice = async (inv) => {
+    try {
+      const blob = await myBillingApi.invoicePdf(inv._id || inv.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `luxurystay-invoice-${inv.invoiceNumber || String(inv._id || inv.id).slice(-6).toUpperCase()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      notify(error.message || 'The invoice could not be downloaded.', 'error');
     }
   };
 
@@ -267,17 +283,15 @@ export default function Account() {
                           <div className="acct-inv" key={inv._id || inv.id}>
                             <span className="acct-inv__icon"><Icon name="receipt" size={18} /></span>
                             <div className="acct-inv__main">
-                              <div className="acct-inv__no">Invoice · {inv._id?.slice(-6) || inv.id?.slice(-6) || '—'}</div>
+                              <div className="acct-inv__no">Invoice · {inv.invoiceNumber || inv._id?.slice(-6) || inv.id?.slice(-6) || '—'}</div>
                               <div className="acct-inv__meta">{created ? `Issued ${fmt(created.split('T')[0])}` : ''}{inv.paymentMethod ? ` · ${paymentMethodById[inv.paymentMethod]?.label || inv.paymentMethod}` : ''}</div>
                             </div>
                             <div className="acct-inv__side">
                               <span className="acct-inv__total">{money(total)}</span>
                               <StatusBadge status={inv.paymentStatus} />
-                              {inv.paymentStatus !== 'paid' && inv.paymentStatus !== 'cancelled' && (
-                                <Link to="/billing" className="acct-link">
-                                  Pay now <Icon name="arrowRight" size={14} />
-                                </Link>
-                              )}
+                              <button className="acct-link" onClick={() => downloadInvoice(inv)}>
+                                <Icon name="download" size={14} /> PDF
+                              </button>
                             </div>
                           </div>
                         );

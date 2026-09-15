@@ -24,6 +24,20 @@ describe('StatusBadge', () => {
     expect(badge.className).toContain('badge--occupied');
   });
 
+  it('uses the dedicated cancelled badge style', () => {
+    const { container } = render(<StatusBadge status="cancelled" />);
+    const badge = container.querySelector('.badge');
+    expect(badge.className).toContain('badge--cancelled');
+    expect(screen.getByText('Cancelled')).toBeInTheDocument();
+  });
+
+  it('uses the dedicated refunded badge style', () => {
+    const { container } = render(<StatusBadge status="refunded" />);
+    const badge = container.querySelector('.badge');
+    expect(badge.className).toContain('badge--refunded');
+    expect(screen.getByText('Refunded')).toBeInTheDocument();
+  });
+
   it('hides dot when dot=false', () => {
     const { container } = render(<StatusBadge status="available" dot={false} />);
     const dot = container.querySelector('.dot');

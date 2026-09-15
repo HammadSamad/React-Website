@@ -1,4 +1,16 @@
+import axios from 'axios';
+
+// Existing backend base URL, moved into the centralized Axios configuration.
 export const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
+
+// Centralized Axios instance: every API request in the app goes through this.
+// `withCredentials` keeps the existing httpOnly-cookie (JWT) auth flow intact —
+// the token itself is never readable from JavaScript, so no Authorization
+// header interceptor is added and the server-driven cookie auth stays unchanged.
+export const apiClient = axios.create({
+  baseURL: API_URL,
+  withCredentials: true,
+});
 
 function extractErrorMessage(data) {
   if (!data) return 'The request could not be completed.';
@@ -14,51 +26,64 @@ function extractErrorMessage(data) {
   return 'The request could not be completed.';
 }
 
-export async function api(path, { method = 'GET', body, headers } = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    method,
-    credentials: 'include',
-    headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.errorMessage) {
-    let message = extractErrorMessage(data);
-    if (response.status === 429) {
-      const retryAfter = response.headers.get('Retry-After');
-      message = retryAfter
-        ? `Too many attempts. Please wait ${retryAfter} seconds before trying again.`
-        : 'Too many attempts. Please wait a moment before trying again.';
-    }
-    const error = new Error(message);
-    error.status = response.status;
-    error.code = data.code;
-    throw error;
+function toApiError(data, status, retryAfter) {
+  let message = extractErrorMessage(data);
+  if (status === 429) {
+    message = retryAfter
+      ? `Too many attempts. Please wait ${retryAfter} seconds before trying again.`
+      : 'Too many attempts. Please wait a moment before trying again.';
   }
-  return data;
+  const error = new Error(message);
+  error.status = status;
+  error.code = data && data.code;
+  return error;
+}
+
+function normalizeAxiosError(error) {
+  // Axios v1 raw errors already carry a `status` property (from the response),
+  // so only skip re-normalization for errors we produced ourselves (plain
+  // Error objects with a status, without the axios `isAxiosError` marker).
+  if (error && error.status !== undefined && !error.isAxiosError) return error;
+  const status = error.response && error.response.status;
+  const headers = error.response && error.response.headers;
+  const retryAfter = headers && (headers['retry-after'] || headers['Retry-After']);
+  return toApiError(error.response && error.response.data, status, retryAfter || null);
+}
+
+// Centralized response interceptor so any direct apiClient usage receives the
+// same normalized errors (message / status / code) the rest of the app expects.
+apiClient.interceptors.response.use(
+  (response) => {
+    if (response.data && response.data.errorMessage) {
+      throw toApiError(response.data, response.status);
+    }
+    return response;
+  },
+  (error) => Promise.reject(normalizeAxiosError(error))
+);
+
+export async function api(path, { method = 'GET', body, headers } = {}) {
+  try {
+    const response = await apiClient.request({ url: path, method, data: body, headers });
+    if (response.data && response.data.errorMessage) {
+      throw toApiError(response.data, response.status);
+    }
+    return response.data;
+  } catch (error) {
+    throw normalizeAxiosError(error);
+  }
 }
 
 export async function apiForm(path, { method = 'POST', body } = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    method,
-    credentials: 'include',
-    body,
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.errorMessage) {
-    let message = extractErrorMessage(data);
-    if (response.status === 429) {
-      const retryAfter = response.headers.get('Retry-After');
-      message = retryAfter
-        ? `Too many attempts. Please wait ${retryAfter} seconds before trying again.`
-        : 'Too many attempts. Please wait a moment before trying again.';
+  try {
+    const response = await apiClient.request({ url: path, method, data: body });
+    if (response.data && response.data.errorMessage) {
+      throw toApiError(response.data, response.status);
     }
-    const error = new Error(message);
-    error.status = response.status;
-    error.code = data.code;
-    throw error;
+    return response.data;
+  } catch (error) {
+    throw normalizeAxiosError(error);
   }
-  return data;
 }
 
 function extractArray(data, keys = ['data', 'rooms', 'reservations', 'guests', 'staff', 'invoices', 'housekeeping', 'maintenance', 'feedback', 'services', 'notifications', 'payments', 'reports']) {
@@ -102,6 +127,7 @@ function formDataToNumericJson(fd) {
 export const roomsApi = {
   list: () => api('/room/viewRoom').then(extractArray),
   get: (id) => api(`/room/viewRoom/${id}`),
+  available: (checkInDate, checkOutDate, guests) => api(`/room/available?checkInDate=${encodeURIComponent(checkInDate)}&checkOutDate=${encodeURIComponent(checkOutDate)}${guests ? `&numberOfGuests=${encodeURIComponent(guests)}` : ''}`).then(extractArray),
   create: (data) => {
     if (data instanceof FormData && !data.has('images')) return api('/room/addRoom', { method: 'POST', body: formDataToNumericJson(data) });
     if (data instanceof FormData) return apiForm('/room/addRoom', { method: 'POST', body: data });
@@ -164,6 +190,9 @@ export const feedbackApi = {
   list: () => api('/feedback/viewFeedback').then(extractArray),
   get: (id) => api(`/feedback/viewFeedback/${id}`),
   create: (data) => api('/feedback/addFeedback', { method: 'POST', body: data }),
+  contact: (data) => api('/feedback/contact', { method: 'POST', body: data }),
+  publicReviews: () => api('/feedback/public-reviews'),
+  submitReview: (data) => api('/feedback/public-review', { method: 'POST', body: data }),
   update: (id, data) => api(`/feedback/updateFeedback/${id}`, { method: 'PUT', body: data }),
   delete: (id) => api(`/feedback/deleteFeedback/${id}`, { method: 'DELETE' }),
   filter: (filters) => api('/feedback/filterFeedback', { method: 'POST', body: filters }).then(extractArray),
@@ -221,6 +250,10 @@ export const myBillingApi = {
   payments: () => api('/billing/payments').then(extractArray),
   pay: (data) => api('/billing/pay', { method: 'POST', body: data }),
   stripeCheckout: (data) => api('/stripe/checkout', { method: 'POST', body: data }),
+  invoicePdf: async (id) => {
+    const response = await apiClient.get(`/billing/invoices/${id}/pdf`, { responseType: 'blob' });
+    return response.data;
+  },
 };
 
 function buildRange(startDate, endDate) {
@@ -240,12 +273,14 @@ export const reportsApi = {
   booking: (startDate, endDate) => api(`/report/bookingReport${buildRange(startDate, endDate)}`),
   feedback: () => api('/report/feedbackReport'),
   dashboard: (startDate, endDate) => api(`/report/dashboard${buildRange(startDate, endDate)}`),
-  exportPdf: (startDate, endDate) => {
+  exportPdf: async (startDate, endDate) => {
     const q = buildRange(startDate, endDate);
-    return fetch(`${API_URL}/report/exportPdf${q}`, { credentials: 'include' }).then((r) => {
-      if (!r.ok) throw new Error('Could not generate the PDF report.');
-      return r.blob();
-    });
+    try {
+      const response = await apiClient.get(`/report/exportPdf${q}`, { responseType: 'blob' });
+      return response.data;
+    } catch {
+      throw new Error('Could not generate the PDF report.');
+    }
   },
 };
 
@@ -256,8 +291,9 @@ export const invoicesApi = {
   update: (id, data) => api(`/invoice/updateInvoice/${id}`, { method: 'PUT', body: data }),
   delete: (id) => api(`/invoice/deleteInvoice/${id}`, { method: 'DELETE' }),
   updatePaymentStatus: (id, status) => api(`/invoice/updatePaymentStatus/${id}`, { method: 'PUT', body: { paymentStatus: status } }),
-  downloadPdf: (id) => {
-    return fetch(`${API_URL}/invoice/${id}/pdf`, { credentials: 'include' }).then(r => r.blob());
+  downloadPdf: async (id) => {
+    const response = await apiClient.get(`/invoice/${id}/pdf`, { responseType: 'blob' });
+    return response.data;
   },
   emailPdf: (id, email) => api(`/invoice/${id}/email`, { method: 'POST', body: { email } }),
 };

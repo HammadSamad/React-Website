@@ -33,6 +33,12 @@ const REPORT_TYPES = [
 const reportTypeLabel = (t) => (REPORT_TYPES.find((x) => x.key === t) || {}).label || t || '—';
 const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const statusLabel = (s) => s.replace('-', ' ').replace(/^\w/, (c) => c.toUpperCase());
+const monthShort = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(`${String(iso).slice(0, 7)}-01T00:00:00Z`);
+  if (Number.isNaN(d.valueOf())) return String(iso);
+  return d.toLocaleDateString('en-US', { month: 'short' });
+};
 
 function downloadCsv(filename, rows) {
   const csv = rows
@@ -88,12 +94,18 @@ export default function Reports() {
   const loadSavedReports = () => reportsApi.list().then(setSavedReports).catch(() => setSavedReports([]));
   useEffect(() => { loadSavedReports(); }, []);
 
+  const liveRevenue = metrics.revenue;
+  const useLiveRevenue = !!liveRevenue && Array.isArray(liveRevenue.revenueByMonth) && liveRevenue.revenueByMonth.length > 0;
   const revenueBars = useMemo(() => {
+    if (useLiveRevenue) {
+      return (liveRevenue.months || []).map((label, i) => ({ label: monthShort(label), value: liveRevenue.revenueByMonth[i] }));
+    }
     const months = analytics.months.slice(-p.months);
     const vals = analytics.revenueByMonth.slice(-p.months);
     return months.map((m, i) => ({ label: m, value: vals[i] }));
-  }, [analytics, p.months]);
+  }, [analytics, p.months, useLiveRevenue, liveRevenue]);
   const periodRevenue = useMemo(() => revenueBars.reduce((s, r) => s + r.value, 0), [revenueBars]);
+  const revenueDisplay = (v) => (useLiveRevenue ? money(Math.round(v)) : `$${v}k`);
 
   const revByType = useMemo(() => {
     const m = {};
@@ -176,10 +188,10 @@ export default function Reports() {
       ['Revenue MTD ($)', k.revenueMTD],
       ['Guest satisfaction (/5)', k.satisfaction],
       [],
-      ['Revenue by month ($k)'],
+      ['Revenue by month' + (useLiveRevenue ? ' ($)' : ' ($k)')],
       ['Month', 'Revenue'],
-      ...revenueBars.map((r) => [r.label, r.value]),
-      ['Total', periodRevenue],
+      ...revenueBars.map((r) => [r.label, useLiveRevenue ? `${r.value.toFixed(2)}` : `${r.value}k`]),
+      ['Total', useLiveRevenue ? periodRevenue.toFixed(2) : `${periodRevenue}k`],
       [],
       ['Booked revenue by room type ($)'],
       ['Room type', 'Revenue'],
@@ -263,7 +275,7 @@ export default function Reports() {
           <span className="field-label">To</span>
           <input className="input" type="date" max={today} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </label>
-        <span className="rep-meta">Revenue this period · <strong>${periodRevenue}k</strong></span>
+        <span className="rep-meta">Revenue this period · <strong>{revenueDisplay(periodRevenue)}</strong></span>
       </div>
 
       <div className="kpi-grid">
@@ -279,11 +291,11 @@ export default function Reports() {
           <div className="panel__head">
             <div>
               <h2 className="panel__title">Revenue</h2>
-              <p className="panel__sub">{p.label} · in thousands{metrics.revenue ? ` · ${money(metrics.revenue.totalRevenue)} total paid` : ''}</p>
+              <p className="panel__sub">{p.label} · {useLiveRevenue ? 'in dollars' : 'in thousands'}{metrics.revenue ? ` · ${money(metrics.revenue.totalRevenue)} total paid` : ''}</p>
             </div>
-            <span className="td-mut">${periodRevenue}k total</span>
+            <span className="td-mut">{revenueDisplay(periodRevenue)} total</span>
           </div>
-          <Bars data={revenueBars} height={240} format={(v) => `$${v}k`} />
+          <Bars data={revenueBars} height={240} format={revenueDisplay} />
         </Reveal>
 
         <Reveal as="section" className="panel" delay={0.08}>

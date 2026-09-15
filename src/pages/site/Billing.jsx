@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHero from '../../components/site/PageHero.jsx';
 import Reveal from '../../components/common/Reveal.jsx';
@@ -13,7 +13,12 @@ const fmt = (iso) => {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 };
-const refOf = (id) => `#${String(id || '').slice(-6).toUpperCase()}`;
+const refOf = (ref) => {
+  const inv = ref && typeof ref === 'object' ? ref : null;
+  if (inv?.invoiceNumber) return inv.invoiceNumber;
+  const id = (inv && (inv._id || inv.id)) || (typeof ref === 'string' ? ref : '');
+  return `#${String(id || '').slice(-6).toUpperCase()}`;
+};
 const totalOf = (inv) =>
   (inv && inv.totalAmount != null)
     ? Number(inv.totalAmount)
@@ -43,6 +48,22 @@ export default function Billing() {
   };
   useEffect(() => { load(); }, []);
 
+  const downloadInvoice = async (inv) => {
+    try {
+      const blob = await myBillingApi.invoicePdf(inv._id || inv.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `luxurystay-invoice-${inv.invoiceNumber || String(inv._id || inv.id).slice(-6).toUpperCase()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      notify(error.message || 'The invoice could not be downloaded.', 'error');
+    }
+  };
+
   useEffect(() => {
     const paid = new URLSearchParams(window.location.search).get('paid');
     if (paid) {
@@ -53,19 +74,85 @@ export default function Billing() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Deep-link support: guests can land on /billing?invoice=<id>, so the exact
+  // invoice is opened with its payment panel ready. The param is
+  // kept in the URL (and mirrored on open/close below) so a page reload re-opens
+  // the same panel instead of dropping the guest back to a collapsed list.
+  const deepLinkRef = useRef(false);
+  const setPanelParam = (id) => {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('invoice', id);
+    else url.searchParams.delete('invoice');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  };
+  useEffect(() => {
+    const target = new URLSearchParams(window.location.search).get('invoice');
+    if (!target) return;
+    const inv = invoices.find((i) => String(i._id || i.id) === String(target));
+    if (!inv) return;
+    deepLinkRef.current = true;
+    setPayingId(inv._id || inv.id);
+    const d = dueOf(inv);
+    setPayAmount(d > 0 ? String(d) : '');
+    setPayMethod('card');
+    setTxnRef('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoices]);
+
+  // Once the deep-linked payment panel is rendered, scroll so the invoice sits
+  // at the top (just below the fixed navbar) with the payment history beneath.
+  const focusInvoice = () => {
+    if (!payingId) return;
+    const node = document.getElementById(`bill-inv-${payingId}`);
+    if (!node) return;
+    const top = node.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0);
+    const target = Math.max(0, top - 104);
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    try { window.scrollTo({ top: target, behavior: reduce ? 'instant' : 'smooth' }); } catch { window.scrollTo(0, target); }
+  };
+  // Forces the exact landing position once layout has settled. Smooth scrolls
+  // can be interrupted or left short while the route fade and scroll-triggered
+  // reveals are still moving, so re-check against the intended offset and snap.
+  const snapInvoice = () => {
+    if (!payingId) return;
+    const node = document.getElementById(`bill-inv-${payingId}`);
+    if (!node) return;
+    const target = Math.max(0, node.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0) - 104);
+    const y = window.pageYOffset || window.scrollY || 0;
+    if (Math.abs(y - target) > 60) {
+      try { window.scrollTo({ top: target, behavior: 'instant' }); } catch { window.scrollTo(0, target); }
+    }
+  };
+  useEffect(() => {
+    if (!deepLinkRef.current || !payingId) return;
+    deepLinkRef.current = false;
+    requestAnimationFrame(() => {
+      focusInvoice();
+      // Re-snap shortly after: the route fade + scroll-triggered reveals can
+      // shift layout a little, and an interrupted smooth scroll stops early.
+      window.setTimeout(focusInvoice, 350);
+      // Final exact landing once the reveal animation has settled.
+      window.setTimeout(snapInvoice, 900);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payingId]);
+
   const paidFor = useMemo(() => {
     const m = {};
     for (const p of payments) {
       if (p.paymentStatus !== 'paid') continue;
       const k = String(invIdOf(p) || '');
-      m[k] = (m[k] || 0) + Number(p.amount || 0);
+      m[k] = (m[k] || 0) + Math.max(0, Number(p.amount || 0) - Number(p.refundedAmount || 0));
     }
     return m;
   }, [payments]);
-  const pendingFor = useMemo(() => {
+  // Only cash payments are "awaiting collection at the hotel". A pending card
+  // or bank-transfer payment just means the online payment is still in flight —
+  // the guest must still be able to pay.
+  const pendingCashFor = useMemo(() => {
     const m = {};
     for (const p of payments) {
-      if (p.paymentStatus !== 'pending') continue;
+      if (p.paymentStatus !== 'pending' || p.paymentMethod !== 'cash') continue;
       const k = String(invIdOf(p) || '');
       m[k] = (m[k] || 0) + Number(p.amount || 0);
     }
@@ -88,7 +175,6 @@ export default function Billing() {
     { id: 'paid', label: 'Paid' },
     { id: 'pending', label: 'Pending' },
     { id: 'failed', label: 'Failed' },
-    { id: 'cancelled', label: 'Cancelled' },
   ];
   const invStatus = (inv) => inv.paymentStatus || 'pending';
   const countInv = (id) => (id === 'all' ? invoices.length : invoices.filter((i) => invStatus(i) === id).length);
@@ -96,8 +182,14 @@ export default function Billing() {
   const visibleInvoices = invTab === 'all' ? invoices : invoices.filter((i) => invStatus(i) === invTab);
   const visiblePayments = payTab === 'all' ? payments : payments.filter((p) => (p.paymentStatus || 'pending') === payTab);
 
+  const closePanel = () => {
+    setPayingId(null);
+    setPanelParam(null);
+  };
+
   const openPay = (inv) => {
     setPayingId(inv._id);
+    setPanelParam(inv._id);
     const d = dueOf(inv);
     setPayAmount(d > 0 ? String(d) : '');
     setPayMethod('card');
@@ -136,10 +228,11 @@ export default function Billing() {
       notify(
         payMethod === 'cash'
           ? `Payment of ${money(amount)} scheduled — settle in cash at the hotel.`
-          : `Payment of ${money(amount)} received. Thank you.`,
+          : `Bank transfer of ${money(amount)} recorded — our team will confirm it once the funds arrive.`,
         'success'
       );
       setPayingId(null);
+      setPanelParam(null);
       load();
     } catch (error) {
       notify(error.message || 'Payment could not be completed.', 'error');
@@ -228,13 +321,13 @@ export default function Billing() {
                   const total = totalOf(inv);
                   const paid = paidFor[String(inv._id)] || 0;
                   const due = dueOf(inv);
-                  const pending = pendingFor[String(inv._id)] || 0;
-                  const awaiting = pending > 0 && pending >= due;
+                  const pendingCash = pendingCashFor[String(inv._id)] || 0;
+                  const awaiting = pendingCash > 0 && pendingCash >= due;
                   const open = payingId === inv._id;
                   return (
-                    <article className={`bill-inv${open ? ' is-open' : ''}`} key={inv._id}>
+                    <article className={`bill-inv${open ? ' is-open' : ''}`} id={`bill-inv-${inv._id}`} key={inv._id}>
                       <div className="bill-inv__head">
-                        <span className="bill-inv__no">Invoice {refOf(inv._id)}</span>
+                        <span className="bill-inv__no">Invoice {refOf(inv)}</span>
                         <span className="bill-inv__date">Issued {inv.createdAt ? fmt(inv.createdAt.split('T')[0]) : '—'}</span>
                         {inv.roomId?.roomType ? <span className="bill-inv__room">{inv.roomId.roomType}{inv.roomId.roomNumber ? ` · Room ${inv.roomId.roomNumber}` : ''}</span> : null}
                       </div>
@@ -248,12 +341,15 @@ export default function Billing() {
                         <div className="bill-inv__totalrow"><dt>Total</dt><dd>{money(total)}</dd></div>
                       </dl>
 
-                      <div className="bill-inv__foot">
-                        <div className="bill-inv__status">
-                          {paid > 0 && <span className="bill-inv__paid">{money(paid)} paid</span>}
-                          <StatusBadge status={inv.paymentStatus} />
-                          {due > 0 && <span className="bill-inv__due">Balance due {money(due)}</span>}
-                        </div>
+<div className="bill-inv__foot">
+                          <div className="bill-inv__status">
+                            {paid > 0 && <span className="bill-inv__paid">{money(paid)} paid</span>}
+                            <StatusBadge status={inv.paymentStatus} />
+                            {due > 0 && <span className="bill-inv__due">Balance due {money(due)}</span>}
+                          </div>
+                          <button className="btn btn--outline" onClick={() => downloadInvoice(inv)}>
+                            <Icon name="download" size={15} /> PDF
+                          </button>
                         {awaiting ? (
                           <span className="bill-inv__awaiting"><Icon name="clock" size={15} /> Awaiting collection at the hotel</span>
                         ) : due > 0 && !open ? (
@@ -320,7 +416,7 @@ export default function Billing() {
                           <div className="bill-pay__foot">
                             <span className="bill-pay__due">Invoice total {money(total)} · Balance {money(due)}</span>
                             <div className="bill-pay__actions">
-                              <button className="btn btn--outline" onClick={() => setPayingId(null)}>Cancel</button>
+                              <button className="btn btn--outline" onClick={closePanel}>Cancel</button>
                               {payMethod !== 'card' && (
                                 <button className="btn" disabled={submitting} onClick={submitPayment}>
                                   {submitting ? <Icon name="loader" size={16} /> : <Icon name="check" size={16} />}
@@ -383,7 +479,7 @@ export default function Billing() {
                         <div className="bill-payrow__main">
                           <div className="bill-payrow__top">
                             {money(p.amount)}
-                            <span className="bill-payrow__inv">Invoice {refOf(invIdOf(p))}</span>
+                            <span className="bill-payrow__inv">Invoice {refOf(p.invoiceId)}</span>
                           </div>
                           <div className="bill-payrow__meta">
                             {paymentMethodById[p.paymentMethod]?.label || p.paymentMethod}

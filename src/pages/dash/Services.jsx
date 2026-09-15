@@ -14,7 +14,7 @@ const FILTERS = [
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
-const BLANK = { serviceType: 'room-service', guestId: '', roomId: '', serviceDescription: '' };
+const BLANK = { serviceType: 'room-service', guestId: '', roomId: '', serviceDescription: '', servicePrice: '' };
 
 export default function Services() {
   const { services, setServices, guests, rooms, staff, notify, refreshAll } = useData();
@@ -38,7 +38,8 @@ export default function Services() {
   );
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const canAdd = form.serviceType && form.serviceDescription.trim();
+  const price = Number(form.servicePrice);
+  const canAdd = form.serviceType && form.serviceDescription.trim() && Number.isFinite(price) && price >= 0;
   const submit = async () => {
     if (!canAdd) return;
     try {
@@ -47,6 +48,7 @@ export default function Services() {
         guestId: form.guestId || null,
         roomId: form.roomId || null,
         serviceDescription: form.serviceDescription.trim(),
+        servicePrice: price,
       };
       await servicesApi.create(payload);
       setForm(BLANK);
@@ -164,6 +166,8 @@ export default function Services() {
               <option value="">—</option>
               {guests.map((g) => <option key={g._id || g.id} value={g._id || g.id}>{g.guestName || g.name}</option>)}
             </select></label>
+          <label className="field"><span className="field-label">Price *</span>
+            <input className="input" type="number" min="0" step="0.01" value={form.servicePrice} onChange={set('servicePrice')} placeholder="0.00" /></label>
         </div>
         <label className="field" style={{ marginTop: '1rem' }}><span className="field-label">Description *</span>
           <textarea className="textarea" rows={3} value={form.serviceDescription} onChange={set('serviceDescription')} placeholder="What does the guest need?" /></label>

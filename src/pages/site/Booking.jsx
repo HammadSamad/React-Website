@@ -7,9 +7,11 @@ import Modal from '../../components/common/Modal.jsx';
 import Select from '../../components/common/Select.jsx';
 import { useData } from '../../context/DataContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { authApi, reservationsApi, myBillingApi } from '../../lib/api.js';
+import { authApi, reservationsApi, myBillingApi, roomsApi } from '../../lib/api.js';
 import { nights, money, todayISO, paymentMethods } from '../../data/hotel.js';
 const STEPS = ['Your stay', 'Your details', 'Payment', 'Review', 'Confirmed'];
+
+const isHardUnavailable = (r) => r && (r.roomStatus === 'maintenance' || r.roomStatus === 'cleaning');
 
 const PAY_METHODS = [
   { id: 'stripe', label: 'Pay with Stripe', icon: 'creditCard', hint: 'Instant, secure online card payment — Visa, Mastercard, Amex' },
@@ -84,6 +86,27 @@ export default function Booking() {
   const [paymentMethod, setPaymentMethod] = useState('stripe');
   const [transfer, setTransfer] = useState({ holder: '', bank: '', ref: '' });
 
+  // Room ids with an active reservation overlapping the selected dates. Fetched
+  // live as soon as the dates change so availability reflects real bookings.
+  const [dateUnavailable, setDateUnavailable] = useState(() => new Set());
+  const availReq = useRef(0);
+  useEffect(() => {
+    const { checkIn, checkOut } = stay;
+    const id = ++availReq.current;
+    if (!(checkIn && checkOut && checkOut > checkIn)) { setDateUnavailable(new Set()); return; }
+    roomsApi.available(checkIn, checkOut)
+      .then((list) => {
+        if (availReq.current !== id) return;
+        setDateUnavailable(new Set(
+          list
+            .filter((r) => r && r.available === false && !isHardUnavailable(r))
+            .map((r) => roomId(r))
+            .filter(Boolean)
+        ));
+      })
+      .catch(() => { if (availReq.current === id) setDateUnavailable(new Set()); });
+  }, [stay.checkIn, stay.checkOut]);
+
   // Inline email verification for first-time (anonymous) bookings: the account
   // is created, then the guest enters the emailed code so a session can be
   // established before the reservation is created.
@@ -137,16 +160,20 @@ export default function Booking() {
 
   useEffect(() => {
     if (!roomOptions.length) return;
-    const current = roomOptions.find((r) => roomId(r) === stay.typeId) || roomOptions.find((r) => r.roomStatus === 'available') || roomOptions[0];
+    const current = roomOptions.find((r) => roomId(r) === stay.typeId);
+    const chosen = (current && !isHardUnavailable(current) && !dateUnavailable.has(roomId(current)))
+      ? current
+      : (roomOptions.find((r) => !isHardUnavailable(r) && !dateUnavailable.has(roomId(r))) || current || roomOptions[0]);
     setStay((s) => {
-      const nextGuests = Math.min(s.guests, current.maxGuests);
-      if (s.typeId === roomId(current) && s.guests === nextGuests) return s;
-      return { ...s, typeId: roomId(current), guests: nextGuests };
+      const nextGuests = Math.min(s.guests, chosen.maxGuests || 2);
+      if (s.typeId === roomId(chosen) && s.guests === nextGuests) return s;
+      return { ...s, typeId: roomId(chosen), guests: nextGuests };
     });
-  }, [roomOptions]);
+  }, [roomOptions, dateUnavailable, stay.typeId]);
 
   const type = roomOptions.find((r) => roomId(r) === stay.typeId) || roomOptions[0] || {};
   const roomPrice = type.roomPrice || 0;
+  const bookableRoom = (r) => !isHardUnavailable(r) && !dateUnavailable.has(roomId(r));
 
   const nightCount = Math.max(1, nights(stay.checkIn, stay.checkOut));
   const roomTotal = roomPrice * nightCount;
@@ -158,7 +185,7 @@ export default function Booking() {
   const checkInInvalid = !stay.checkIn || stay.checkIn < today;
   const checkOutInvalid = !stay.checkIn || !stay.checkOut || stay.checkOut <= stay.checkIn;
 
-  const stayValid = !checkInInvalid && !checkOutInvalid && stay.guests <= (type.maxGuests || 2);
+  const stayValid = !checkInInvalid && !checkOutInvalid && stay.guests <= (type.maxGuests || 2) && bookableRoom(type);
   const guestValid = guest.name.trim() && /\S+@\S+\.\S+/.test(guest.email);
 
 const transferValid = paymentMethod !== 'bank_transfer' || (
@@ -169,7 +196,15 @@ const transferValid = paymentMethod !== 'bank_transfer' || (
 
   const confirm = async () => {
     const chosen = roomOptions.find((r) => roomId(r) === stay.typeId);
-    if (!chosen || chosen.roomStatus !== 'available') {
+    if (!chosen) {
+      notify('That room is no longer available. Please choose another room.', 'error');
+      return;
+    }
+    if (dateUnavailable.has(roomId(chosen))) {
+      notify('This room is not available for the selected dates.', 'error');
+      return;
+    }
+    if (isHardUnavailable(chosen)) {
       notify('That room is no longer available. Please choose another room.', 'error');
       return;
     }
@@ -264,7 +299,8 @@ const transferValid = paymentMethod !== 'bank_transfer' || (
 
                 <div className="booking-types">
                   {roomOptions.map((t) => {
-                    const avail = t.roomStatus === 'available';
+                    const isDateTaken = dateUnavailable.has(roomId(t));
+                    const avail = !isHardUnavailable(t) && !isDateTaken;
                     return (
                       <button
                         key={roomId(t)}
@@ -283,7 +319,7 @@ const transferValid = paymentMethod !== 'bank_transfer' || (
                           <span className="booking-type__tier">Room {t.roomNumber} · Floor {t.floor}</span>
                           <span className="booking-type__name">{t.roomType}</span>
                           <span className="booking-type__meta">
-                            {avail ? `Up to ${t.maxGuests} guests` : <em className="booking-type__tag">Not available</em>}
+                            {avail ? `Up to ${t.maxGuests} guests` : <em className="booking-type__tag">{isDateTaken ? 'This room is not available for the selected dates.' : 'Not available'}</em>}
                           </span>
                         </span>
                         <span className="booking-type__price">${t.roomPrice}<small>/night</small></span>
@@ -338,7 +374,7 @@ const transferValid = paymentMethod !== 'bank_transfer' || (
                   <div className="form-grid">
                     <label className="field">
                       <span className="field-label">Phone</span>
-                      <input className="input" required pattern="^(?=(?:\D*\d){11,15}\D*$)[\d\s().+/-]*$" title="Phone number must contain 11 to 15 digits" value={guest.phone} onChange={(e) => setGuest((g) => ({ ...g, phone: e.target.value }))} placeholder="+65 …" />
+                      <input className="input" required pattern="^(?=(?:\D*\d){11,15}\D*$)[\d\s.+\-\/]*$" title="Phone number must contain 11 to 15 digits" value={guest.phone} onChange={(e) => setGuest((g) => ({ ...g, phone: e.target.value }))} placeholder="+65 …" />
                     </label>
                     <label className="field">
                       <span className="field-label">Country</span>

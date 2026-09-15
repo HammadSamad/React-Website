@@ -436,8 +436,10 @@
   .badge--occupied  { color: var(--brass-deep); background: rgba(195, 161, 91, 0.14); border-color: rgba(195, 161, 91, 0.35); }
   .badge--cleaning  { color: var(--st-cleaning); background: rgba(124, 147, 166, 0.14); border-color: rgba(124, 147, 166, 0.32); }
   .badge--maintenance { color: var(--st-maintenance); background: rgba(180, 97, 79, 0.13); border-color: rgba(180, 97, 79, 0.32); }
+  .badge--cancelled  { color: #9c4634; background: rgba(180, 97, 79, 0.18); border-color: rgba(180, 97, 79, 0.42); }
   .badge--reserved  { color: var(--st-reserved); background: rgba(156, 134, 166, 0.14); border-color: rgba(156, 134, 166, 0.32); }
   .badge--neutral   { color: var(--ink-muted); background: rgba(86, 106, 96, 0.1); border-color: rgba(86, 106, 96, 0.22); }
+  .badge--refunded  { color: #b8842e; background: rgba(184, 132, 46, 0.2); border-color: rgba(184, 132, 46, 0.45); }
 
   /* ------------------------------- Forms ------------------------------- */
   .field {
@@ -845,9 +847,10 @@
     display: flex;
     flex-direction: column;
     gap: 1.1rem;
-    max-width: 720px;
+    /* max-width: 720px; */
   }
   .sec-head--center { align-items: center; text-align: center; margin-inline: auto; }
+  .sec-head--center .eyebrow { justify-content: center; }
   .sec-head__title { font-size: clamp(2.1rem, 4vw, 3.4rem); }
   .sec-head__lead { color: var(--sage); max-width: 60ch; }
   .on-light .sec-head__lead { color: var(--ink-muted); }
@@ -1322,7 +1325,7 @@
     position: relative;
     border-radius: var(--r-md);
     overflow: hidden;
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 4 / 3;
   }
   .room-card__idx {
     position: absolute;
@@ -1349,11 +1352,6 @@
     color: var(--bone);
     border: 1px solid var(--forest-line);
   }
-  .room-card__status--available { color: #9fd6b4; }
-  .room-card__status--occupied { color: var(--brass); }
-  .room-card__status--reserved { color: #ecc686; }
-  .room-card__status--maintenance,
-  .room-card__status--cleaning { color: #f2a4a4; }
   .room-card__media--fallback {
     position: absolute;
     inset: 0;
@@ -2560,12 +2558,19 @@
 
   .acct-res__side .btn--danger { margin-top: 0.15rem; }
   .btn--danger {
+    --btn-bg: transparent;
+    --btn-fg: var(--ink-text);
     display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
-    background: var(--st-maintenance); color: #fff; border: 1px solid var(--st-maintenance);
-    transition: background 0.22s var(--ease), border-color 0.22s var(--ease);
+    background: transparent; color: var(--ink-text);
+    border: 1px solid var(--bone-3);
+    transition: background 0.22s var(--ease), border-color 0.22s var(--ease), color 0.22s var(--ease);
   }
-  .btn--danger:hover { background: #9e4634; border-color: #9e4634; color: #fff; }
-  .btn--danger:disabled { opacity: 0.6; cursor: wait; }
+  .btn--danger:hover {
+    background: transparent; border-color: var(--brass-deep); color: var(--brass-deep);
+    box-shadow: none; transform: none;
+  }
+  .btn--danger:disabled { opacity: 0.5; cursor: wait; box-shadow: none; transform: none; }
+  .btn--danger:disabled:hover { background: transparent; border-color: var(--bone-3); color: var(--ink-text); }
 
   .acct-cancel { display: grid; gap: 0.8rem; }
   .acct-cancel__label { display: block; font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 0.4rem; }
@@ -3262,11 +3267,6 @@
 
   /* DashRooms */
   .rooms-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
-  .rooms-dot--available { background: var(--st-available); }
-  .rooms-dot--occupied { background: var(--st-occupied); }
-  .rooms-dot--cleaning { background: var(--st-cleaning); }
-  .rooms-dot--maintenance { background: var(--st-maintenance); }
-  .rooms-dot--reserved { background: var(--st-reserved); }
 
   .rooms-head { display: flex; align-items: center; gap: 1rem 1.5rem; flex-wrap: wrap; }
   .rooms-legend { display: flex; flex-wrap: wrap; gap: 0.9rem 1.25rem; }
@@ -3290,11 +3290,6 @@
   .room-tile__no { font-family: var(--font-display); font-size: 1.35rem; font-weight: 400; color: var(--bone); line-height: 1; }
   .room-tile__type { font-size: 0.76rem; color: var(--sage); }
   .room-tile .rooms-dot { position: absolute; top: 1.1rem; right: 1.1rem; }
-  .room-tile--available { border-left-color: var(--st-available); }
-  .room-tile--occupied { border-left-color: var(--st-occupied); }
-  .room-tile--cleaning { border-left-color: var(--st-cleaning); }
-  .room-tile--maintenance { border-left-color: var(--st-maintenance); }
-  .room-tile--reserved { border-left-color: var(--st-reserved); }
 
   .room-modal__meta { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem 1.5rem; margin-bottom: 1.75rem; }
   .room-modal__k { display: block; font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 0.4rem; }
@@ -3390,9 +3385,7 @@
     padding: 0.22rem 0.6rem; border-radius: var(--r-pill);
     font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500;
   }
-  .prio--high { color: #e0997f; background: rgba(180, 97, 79, 0.18); }
-  .prio--normal { color: var(--sage); background: rgba(154, 166, 156, 0.14); }
-  .prio--low { color: #9db4c4; background: rgba(124, 147, 166, 0.16); }
+  
 
   .hk-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; align-items: start; }
   .hk-col { background: var(--ink-2); border: 1px solid var(--forest-line); border-radius: var(--r-lg); padding: 1rem; }
@@ -3686,3 +3679,34 @@
     .fb-cats { margin-left: 0; }
   }
 }
+
+/* Status classes are composed dynamically in JSX (e.g. `room-tile--${status}`),
+   so Tailwind's content scan never sees their literal names and drops them
+   from @layer components. They are emitted flattened/unlayered here, placed at
+   the end of the file so they win over the base classes by source order. */
+  .rooms-dot--available { background: var(--st-available); }
+  .rooms-dot--occupied { background: var(--st-occupied); }
+  .rooms-dot--cleaning { background: var(--st-cleaning); }
+  .rooms-dot--maintenance { background: var(--st-maintenance); }
+  .rooms-dot--reserved { background: var(--st-reserved); }
+
+  .room-tile--available { border-left-color: var(--st-available); background: color-mix(in srgb, var(--st-available) 16%, var(--forest)); }
+  .room-tile--occupied { border-left-color: var(--st-occupied); background: color-mix(in srgb, var(--st-occupied) 16%, var(--forest)); }
+  .room-tile--cleaning { border-left-color: var(--st-cleaning); background: color-mix(in srgb, var(--st-cleaning) 16%, var(--forest)); }
+  .room-tile--maintenance { border-left-color: var(--st-maintenance); background: color-mix(in srgb, var(--st-maintenance) 16%, var(--forest)); }
+  .room-tile--reserved { border-left-color: var(--st-reserved); background: color-mix(in srgb, var(--st-reserved) 16%, var(--forest)); }
+  .room-tile--available:hover { background: color-mix(in srgb, var(--st-available) 26%, var(--forest-2)); }
+  .room-tile--occupied:hover { background: color-mix(in srgb, var(--st-occupied) 26%, var(--forest-2)); }
+  .room-tile--cleaning:hover { background: color-mix(in srgb, var(--st-cleaning) 26%, var(--forest-2)); }
+  .room-tile--maintenance:hover { background: color-mix(in srgb, var(--st-maintenance) 26%, var(--forest-2)); }
+  .room-tile--reserved:hover { background: color-mix(in srgb, var(--st-reserved) 26%, var(--forest-2)); }
+
+  .room-card__status--available { color: #9fd6b4; }
+  .room-card__status--occupied { color: var(--brass); }
+  .room-card__status--reserved { color: #ecc686; }
+  .room-card__status--maintenance,
+  .room-card__status--cleaning { color: #f2a4a4; }
+
+  .prio--high { color: #e0997f; background: rgba(180, 97, 79, 0.18); }
+  .prio--normal { color: var(--sage); background: rgba(154, 166, 156, 0.14); }
+  .prio--low { color: #9db4c4; background: rgba(124, 147, 166, 0.16); }

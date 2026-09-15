@@ -76,6 +76,7 @@ export function DataProvider({ children }) {
     const isHousekeepingScope = role && ['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance'].includes(role);
     const isMaintenanceScope = role && ['admin', 'manager', 'receptionist', 'maintenance', 'guest'].includes(role);
     const isReservationScope = role && ['admin', 'manager', 'receptionist', 'guest'].includes(role);
+    const isFeedbackScope = role && ['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance'].includes(role);
     const guestWithId = role === 'guest' && user.guestId;
     const loadAll = async () => {
       const settle = (p) => p.then((d) => ({ ok: true, data: d })).catch(() => ({ ok: false, data: null }));
@@ -99,7 +100,7 @@ export function DataProvider({ children }) {
         guestWithId ? settle(myBillingApi.invoices()) : (isStaffList ? settle(invoicesApi.list()) : noop()),
         isHousekeepingScope ? settle(housekeepingApi.list()) : noop(),
         isMaintenanceScope ? settle(maintenanceApi.list()) : noop(),
-        settle(feedbackApi.list()),
+        isFeedbackScope ? settle(feedbackApi.list()) : noop(),
         role ? settle(servicesApi.list()) : noop(),
         role ? settle(notificationsApi.list()) : noop(),
       ]);
@@ -148,7 +149,7 @@ export function DataProvider({ children }) {
 
   const roleForPolicies = user?.role;
   useEffect(() => {
-    if (!roleForPolicies || !['admin', 'manager'].includes(roleForPolicies)) return;
+    if (!roleForPolicies) return;
     settingsApi.getRoles().then((data) => {
       if (data) {
         setRolePolicies((current) => {
@@ -227,6 +228,7 @@ export function DataProvider({ children }) {
     const isHousekeepingScope = role && ['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance'].includes(role);
     const isMaintenanceScope = role && ['admin', 'manager', 'receptionist', 'maintenance', 'guest'].includes(role);
     const isReservationScope = role && ['admin', 'manager', 'receptionist', 'guest'].includes(role);
+    const isFeedbackScope = role && ['admin', 'manager', 'receptionist', 'housekeeping', 'maintenance'].includes(role);
     const [roomsResult, reservationsResult, guestsResult, staffResult, invoicesResult, housekeepingResult, maintenanceResult, feedbackResult, servicesResult, notificationsResult] = await Promise.all([
       settle(roomsApi.list()),
       isReservationScope ? settle(reservationsApi.list()) : noop(),
@@ -235,7 +237,7 @@ export function DataProvider({ children }) {
       role === 'guest' && guestId ? settle(myBillingApi.invoices()) : (isStaffList ? settle(invoicesApi.list()) : noop()),
       isHousekeepingScope ? settle(housekeepingApi.list()) : noop(),
       isMaintenanceScope ? settle(maintenanceApi.list()) : noop(),
-      settle(feedbackApi.list()),
+      isFeedbackScope ? settle(feedbackApi.list()) : noop(),
       role ? settle(servicesApi.list()) : noop(),
       role ? settle(notificationsApi.list()) : noop(),
     ]);

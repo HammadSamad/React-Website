@@ -15,7 +15,7 @@ export default function CheckInOut() {
     const [error, setError] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [modalType, setModalType] = useState('checkin');
-    const [form, setForm] = useState({ guestId: '', roomId: '', reservationId: '', checkInDate: today });
+    const [form, setForm] = useState({ guestId: '', roomId: '', reservationId: '', checkInDate: today, numberOfGuests: 1 });
     const [processing, setProcessing] = useState(false);
 
     const load = async () => {
@@ -59,6 +59,7 @@ export default function CheckInOut() {
             reservationId: value,
             guestId: r.guestId?._id || r.guestId || f.guestId,
             roomId: r.roomId?._id || r.roomId || f.roomId,
+            numberOfGuests: Number(r.numberOfGuests) || f.numberOfGuests || 1,
         }));
     };
 
@@ -66,10 +67,10 @@ export default function CheckInOut() {
         if (!form.guestId || !form.roomId || !form.reservationId) return notify('Fill in all fields', 'error');
         try {
             setProcessing(true);
-            await checkInOutApi.checkIn({ guestId: form.guestId, roomId: form.roomId, reservationId: form.reservationId, checkInDate: form.checkInDate, numberOfGuests: 1 });
+            await checkInOutApi.checkIn({ guestId: form.guestId, roomId: form.roomId, reservationId: form.reservationId, checkInDate: form.checkInDate, numberOfGuests: Number(form.numberOfGuests) || 1 });
             notify('Guest checked in successfully');
             setModalOpen(false);
-            setForm({ guestId: '', roomId: '', reservationId: '', checkInDate: today });
+            setForm({ guestId: '', roomId: '', reservationId: '', checkInDate: today, numberOfGuests: 1 });
             await Promise.all([load(), refreshAll()]);
         } catch (e) {
             notify(e.message, 'error');
@@ -173,6 +174,10 @@ export default function CheckInOut() {
                         {reservations.filter((r) => r.bookingStatus === 'confirmed').map((r) => <option key={r._id || r.id} value={r._id || r.id}>#{r.confirmationCode} · {guestOf(r)} · {roomOf(r)}</option>)}
                     </select>
                     <small className="field-hint">Only confirmed reservations appear here.</small>
+                </label>
+                <label className="field"><span className="field-label">Guests *</span>
+                    <input className="input" type="number" min="1" step="1" value={form.numberOfGuests} onChange={(e) => setForm((f) => ({ ...f, numberOfGuests: e.target.value }))} />
+                    {form.reservationId && <small className="field-hint">Pre-filled from the reservation — adjust if the party differs.</small>}
                 </label>
             </Modal>
         </>

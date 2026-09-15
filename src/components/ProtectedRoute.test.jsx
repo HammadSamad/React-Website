@@ -10,10 +10,20 @@ vi.mock('../context/AuthContext.jsx', () => ({
   useAuth: vi.fn(),
 }));
 
+vi.mock('../context/DataContext.jsx', () => ({
+  useData: vi.fn(() => ({ rolePolicies: {} })),
+}));
+
 import { useAuth } from '../context/AuthContext.jsx';
+import { useData } from '../context/DataContext.jsx';
 import ProtectedRoute from './ProtectedRoute.jsx';
 
 describe('ProtectedRoute', () => {
+  beforeEach(() => {
+    useAuth.mockReset();
+    useData.mockReturnValue({ rolePolicies: {} });
+  });
+
   it('redirects to /login when not authenticated', () => {
     useAuth.mockReturnValue({ isAuthed: false, user: null });
     render(
@@ -53,5 +63,38 @@ describe('ProtectedRoute', () => {
       </ProtectedRoute>
     );
     expect(screen.getByText('Manager Panel')).toBeInTheDocument();
+  });
+
+  it('blocks a role whose module policy is false', () => {
+    useAuth.mockReturnValue({ isAuthed: true, user: { role: 'housekeeping' } });
+    useData.mockReturnValue({ rolePolicies: { housekeeping: { rooms: false } } });
+    render(
+      <ProtectedRoute module="rooms">
+        <div>Rooms</div>
+      </ProtectedRoute>
+    );
+    expect(screen.queryByText('Rooms')).not.toBeInTheDocument();
+  });
+
+  it('allows a role whose module policy is true (granted)', () => {
+    useAuth.mockReturnValue({ isAuthed: true, user: { role: 'housekeeping' } });
+    useData.mockReturnValue({ rolePolicies: { housekeeping: { rooms: true } } });
+    render(
+      <ProtectedRoute module="rooms">
+        <div>Rooms</div>
+      </ProtectedRoute>
+    );
+    expect(screen.getByText('Rooms')).toBeInTheDocument();
+  });
+
+  it('always allows admin regardless of module policy', () => {
+    useAuth.mockReturnValue({ isAuthed: true, user: { role: 'admin' } });
+    useData.mockReturnValue({ rolePolicies: { admin: { rooms: false } } });
+    render(
+      <ProtectedRoute module="rooms">
+        <div>Rooms</div>
+      </ProtectedRoute>
+    );
+    expect(screen.getByText('Rooms')).toBeInTheDocument();
   });
 });
